@@ -4,7 +4,9 @@ services:
     env: python
     plan: free
     rootDir: backend
-    buildCommand: pip install --upgrade pip setuptools wheel && pip install -r requirements.txt
+    runtime: python
+    runtimeVersion: "3.11.7"
+    buildCommand: python --version && pip install --upgrade pip setuptools wheel && pip install -r requirements.txt --prefer-binary
     startCommand: gunicorn api.wsgi:app --bind 0.0.0.0:$PORT --workers 2 --threads 4 --timeout 120
     autoDeploy: true
     envVars:
