@@ -5,7 +5,7 @@
   "main": "index.html",
   "scripts": {
     "dev": "npx serve . -p 3000",
-    "build": "cp -r . ../public || xcopy . ..\\public /E /I",
+    "build": "node -e \"const fs=require('fs'); const path=require('path'); const out=path.join(__dirname,'public'); if(!fs.existsSync(out)) fs.mkdirSync(out,{recursive:true}); const copy=(s,d)=>{if(!fs.existsSync(d)) fs.mkdirSync(d,{recursive:true}); for(const f of fs.readdirSync(s)){ if(['node_modules','public'].includes(f)) continue; const sp=path.join(s,f), dp=path.join(d,f); if(fs.statSync(sp).isDirectory()) copy(sp,dp); else fs.copyFileSync(sp,dp);} }; copy(__dirname,out);\"",
     "start": "npx serve . -p 3000"
   },
   "keywords": ["ais", "vessel", "tracking", "dashboard"],
