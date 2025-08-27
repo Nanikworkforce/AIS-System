@@ -631,7 +631,11 @@
             }
 
             initializeWebSocket() {
-                const wsUrl = 'ws://localhost:8766'; // Enhanced server URL
+                // Determine WebSocket URL based on environment
+                const isProduction = window.location.hostname !== 'localhost';
+                const wsUrl = isProduction 
+                    ? 'wss://your-backend-domain.com:8766' // Replace with your actual backend domain
+                    : 'ws://localhost:8766'; // Enhanced server URL
                 this.updateConnectionStatus('connecting');
                 
                 try {

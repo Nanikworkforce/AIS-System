@@ -1,0 +1,17 @@
+{
+  "name": "ai-system-frontend",
+  "version": "1.0.0",
+  "description": "Real-time AIS tracking dashboard frontend",
+  "main": "index.html",
+  "scripts": {
+    "dev": "npx serve . -p 3000",
+    "build": "echo 'Static site, no build needed'",
+    "start": "npx serve . -p 3000"
+  },
+  "keywords": ["ais", "vessel", "tracking", "dashboard"],
+  "author": "",
+  "license": "MIT",
+  "devDependencies": {
+    "serve": "^14.2.0"
+  }
+}
