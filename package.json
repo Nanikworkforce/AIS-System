@@ -1,0 +1,12 @@
+{
+  "name": "ai-system",
+  "version": "1.0.0",
+  "description": "AI System - Marine Vessel Tracking Platform",
+  "scripts": {
+    "build": "node -e \"const fs=require('fs'); const path=require('path'); if(!fs.existsSync('public')) fs.mkdirSync('public'); const copyDir=(src,dest)=>{if(!fs.existsSync(dest)) fs.mkdirSync(dest,{recursive:true}); fs.readdirSync(src).forEach(file=>{const srcFile=path.join(src,file); const destFile=path.join(dest,file); if(fs.statSync(srcFile).isDirectory()) copyDir(srcFile,destFile); else fs.copyFileSync(srcFile,destFile);})}; copyDir('frontend','public');\"",
+    "dev": "cd frontend && npm run dev"
+  },
+  "keywords": ["ais", "vessel", "tracking", "dashboard"],
+  "author": "",
+  "license": "MIT"
+}

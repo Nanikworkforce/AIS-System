@@ -26,3 +26,6 @@ backend/enhanced_*.py
 *.json
 !package.json
 !frontend/*.json
+
+# Generated build directory
+public/

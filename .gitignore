@@ -1,0 +1,29 @@
+# Python cache files
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+env/
+venv/
+.venv/
+
+# Node modules
+node_modules/
+
+# Generated build directory
+public/
+
+# Local development files
+*.log
+.DS_Store
+.vscode/
+.idea/
+
+# Vercel
+.vercel/
+
+# Environment variables
+.env
+.env.local
+.env.production

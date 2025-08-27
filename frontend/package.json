@@ -5,7 +5,7 @@
   "main": "index.html",
   "scripts": {
     "dev": "npx serve . -p 3000",
-    "build": "echo 'Static site, no build needed'",
+    "build": "cp -r . ../public || xcopy . ..\\public /E /I",
     "start": "npx serve . -p 3000"
   },
   "keywords": ["ais", "vessel", "tracking", "dashboard"],
