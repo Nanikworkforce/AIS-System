@@ -1,8 +1,10 @@
 {
   "version": 2,
-  "buildCommand": "npm run build",
-  "outputDirectory": "public",
   "builds": [
+    {
+      "src": "frontend/**",
+      "use": "@vercel/static"
+    },
     {
       "src": "api/index.py",
       "use": "@vercel/python"
@@ -12,6 +14,14 @@
     {
       "src": "/api/(.*)",
       "dest": "/api/index.py"
+    },
+    {
+      "src": "/",
+      "dest": "/frontend/index.html"
+    },
+    {
+      "src": "/(.*)",
+      "dest": "/frontend/$1"
     }
   ],
   "env": {
