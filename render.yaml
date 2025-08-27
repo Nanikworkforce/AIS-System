@@ -1,0 +1,15 @@
+services:
+  - type: web
+    name: ais-backend
+    env: python
+    plan: free
+    rootDir: backend
+    buildCommand: pip install -r requirements.txt
+    startCommand: gunicorn api.wsgi:app --bind 0.0.0.0:$PORT --workers 2 --threads 4 --timeout 120
+    autoDeploy: true
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.11.7
+      - key: DEFAULT_FLEET_SIZE
+        value: 500
+
