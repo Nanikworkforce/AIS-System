@@ -1,0 +1,658 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Real-Time AIS Dashboard</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #f5f7fa;
+            color: #333;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 1rem 2rem;
+            text-align: center;
+        }
+
+        .header h1 {
+            font-size: 2rem;
+            margin-bottom: 0.5rem;
+        }
+
+        .connection-status {
+            display: inline-block;
+            padding: 0.25rem 0.75rem;
+            border-radius: 20px;
+            font-size: 0.875rem;
+            font-weight: 600;
+        }
+
+        .status-connected {
+            background: #10b981;
+            color: white;
+        }
+
+        .status-disconnected {
+            background: #ef4444;
+            color: white;
+        }
+
+        .status-connecting {
+            background: #f59e0b;
+            color: white;
+        }
+
+        .main-container {
+            display: grid;
+            grid-template-columns: 1fr 2fr;
+            gap: 2rem;
+            padding: 2rem;
+            min-height: calc(100vh - 120px);
+        }
+
+        .sidebar {
+            background: white;
+            border-radius: 12px;
+            padding: 1.5rem;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+            height: fit-content;
+        }
+
+        .main-content {
+            background: white;
+            border-radius: 12px;
+            padding: 1.5rem;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+        }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 1rem;
+            margin-bottom: 2rem;
+        }
+
+        .stat-card {
+            background: #f8fafc;
+            padding: 1rem;
+            border-radius: 8px;
+            text-align: center;
+            border-left: 4px solid;
+        }
+
+        .stat-card.primary { border-left-color: #3b82f6; }
+        .stat-card.success { border-left-color: #10b981; }
+        .stat-card.warning { border-left-color: #f59e0b; }
+        .stat-card.danger { border-left-color: #ef4444; }
+
+        .stat-number {
+            font-size: 2rem;
+            font-weight: 700;
+            margin-bottom: 0.25rem;
+        }
+
+        .stat-label {
+            font-size: 0.875rem;
+            color: #6b7280;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+
+        .section {
+            margin-bottom: 2rem;
+        }
+
+        .section h3 {
+            font-size: 1.25rem;
+            margin-bottom: 1rem;
+            color: #374151;
+            border-bottom: 2px solid #e5e7eb;
+            padding-bottom: 0.5rem;
+        }
+
+        .vessel-list {
+            max-height: 400px;
+            overflow-y: auto;
+        }
+
+        .vessel-item {
+            padding: 0.75rem;
+            border: 1px solid #e5e7eb;
+            border-radius: 6px;
+            margin-bottom: 0.5rem;
+            transition: all 0.2s;
+        }
+
+        .vessel-item:hover {
+            background: #f9fafb;
+            border-color: #3b82f6;
+        }
+
+        .vessel-item.updating {
+            background: #eff6ff;
+            border-color: #3b82f6;
+        }
+
+        .vessel-name {
+            font-weight: 600;
+            color: #1f2937;
+        }
+
+        .vessel-info {
+            font-size: 0.875rem;
+            color: #6b7280;
+            margin-top: 0.25rem;
+        }
+
+        .update-log {
+            background: #111827;
+            color: #f9fafb;
+            padding: 1rem;
+            border-radius: 8px;
+            height: 300px;
+            overflow-y: auto;
+            font-family: 'Courier New', monospace;
+            font-size: 0.875rem;
+            line-height: 1.4;
+        }
+
+        .log-entry {
+            margin-bottom: 0.5rem;
+            opacity: 0;
+            animation: fadeIn 0.3s ease forwards;
+        }
+
+        @keyframes fadeIn {
+            to { opacity: 1; }
+        }
+
+        .log-timestamp {
+            color: #9ca3af;
+        }
+
+        .log-vessel {
+            color: #60a5fa;
+        }
+
+        .log-position {
+            color: #34d399;
+        }
+
+        .log-status {
+            color: #fbbf24;
+        }
+
+        .controls {
+            display: flex;
+            gap: 1rem;
+            margin-bottom: 1rem;
+        }
+
+        .btn {
+            padding: 0.5rem 1rem;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 0.875rem;
+            font-weight: 500;
+            transition: all 0.2s;
+        }
+
+        .btn-primary {
+            background: #3b82f6;
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background: #2563eb;
+        }
+
+        .btn-secondary {
+            background: #6b7280;
+            color: white;
+        }
+
+        .btn-secondary:hover {
+            background: #4b5563;
+        }
+
+        .vessel-type-badges {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.5rem;
+            margin-top: 1rem;
+        }
+
+        .type-badge {
+            padding: 0.25rem 0.75rem;
+            border-radius: 20px;
+            font-size: 0.75rem;
+            font-weight: 600;
+        }
+
+        .type-tanker { background: #fee2e2; color: #dc2626; }
+        .type-bulker { background: #fef3c7; color: #d97706; }
+        .type-container { background: #dbeafe; color: #2563eb; }
+        .type-general_cargo { background: #d1fae5; color: #059669; }
+
+        .loading {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 3px solid #f3f3f3;
+            border-top: 3px solid #3498db;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .alert {
+            padding: 1rem;
+            border-radius: 6px;
+            margin-bottom: 1rem;
+        }
+
+        .alert-info {
+            background: #dbeafe;
+            color: #1e40af;
+            border: 1px solid #93c5fd;
+        }
+
+        .alert-error {
+            background: #fee2e2;
+            color: #dc2626;
+            border: 1px solid #fca5a5;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>🚢 Real-Time AIS Dashboard</h1>
+        <p>Live Marine Vessel Tracking & Analytics</p>
+        <div id="connection-status" class="connection-status status-connecting">
+            <span class="loading"></span> Connecting...
+        </div>
+    </div>
+
+    <div class="main-container">
+        <div class="sidebar">
+            <div class="section">
+                <h3>📊 Fleet Statistics</h3>
+                <div class="stats-grid">
+                    <div class="stat-card primary">
+                        <div class="stat-number" id="total-vessels">0</div>
+                        <div class="stat-label">Total Vessels</div>
+                    </div>
+                    <div class="stat-card success">
+                        <div class="stat-number" id="active-vessels">0</div>
+                        <div class="stat-label">Active</div>
+                    </div>
+                    <div class="stat-card warning">
+                        <div class="stat-number" id="in-port-vessels">0</div>
+                        <div class="stat-label">In Port</div>
+                    </div>
+                    <div class="stat-card danger">
+                        <div class="stat-number" id="updates-per-min">0</div>
+                        <div class="stat-label">Updates/Min</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="section">
+                <h3>🚢 Vessel Types</h3>
+                <div id="vessel-types" class="vessel-type-badges">
+                    <!-- Will be populated by JavaScript -->
+                </div>
+            </div>
+
+            <div class="section">
+                <h3>🎛️ Controls</h3>
+                <div class="controls">
+                    <button class="btn btn-primary" onclick="requestFleetSummary()">
+                        Refresh Summary
+                    </button>
+                    <button class="btn btn-secondary" onclick="toggleAutoScroll()">
+                        Toggle Auto-scroll
+                    </button>
+                </div>
+            </div>
+
+            <div class="section">
+                <h3>📡 Recent Updates</h3>
+                <div id="recent-vessels" class="vessel-list">
+                    <!-- Will be populated with recently updated vessels -->
+                </div>
+            </div>
+        </div>
+
+        <div class="main-content">
+            <div class="section">
+                <h3>📝 Live Update Log</h3>
+                <div id="update-log" class="update-log">
+                    <div class="log-entry">
+                        <span class="log-timestamp">[Starting]</span> 
+                        Initializing real-time AIS dashboard...
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        class RealtimeAISDashboard {
+            constructor() {
+                this.websocket = null;
+                this.isConnected = false;
+                this.autoScroll = true;
+                this.updateCount = 0;
+                this.startTime = Date.now();
+                this.recentVessels = new Map();
+                
+                this.initializeWebSocket();
+                this.startUpdateRateCalculation();
+            }
+
+            initializeWebSocket() {
+                const wsUrl = 'ws://localhost:8765'; // WebSocket server URL
+                this.addLogEntry('system', `Connecting to ${wsUrl}...`);
+                
+                try {
+                    this.websocket = new WebSocket(wsUrl);
+                    this.setupWebSocketHandlers();
+                } catch (error) {
+                    this.addLogEntry('error', `Failed to connect: ${error.message}`);
+                    this.updateConnectionStatus('disconnected');
+                }
+            }
+
+            setupWebSocketHandlers() {
+                this.websocket.onopen = () => {
+                    this.isConnected = true;
+                    this.updateConnectionStatus('connected');
+                    this.addLogEntry('system', 'Connected to real-time AIS stream');
+                    
+                    // Subscribe to all updates
+                    this.sendMessage({
+                        type: 'subscribe',
+                        subscription_type: 'all'
+                    });
+                };
+
+                this.websocket.onclose = () => {
+                    this.isConnected = false;
+                    this.updateConnectionStatus('disconnected');
+                    this.addLogEntry('error', 'Connection closed. Attempting to reconnect...');
+                    
+                    // Attempt to reconnect after 5 seconds
+                    setTimeout(() => {
+                        this.initializeWebSocket();
+                    }, 5000);
+                };
+
+                this.websocket.onerror = (error) => {
+                    this.addLogEntry('error', `WebSocket error: ${error}`);
+                };
+
+                this.websocket.onmessage = (event) => {
+                    try {
+                        const data = JSON.parse(event.data);
+                        this.handleMessage(data);
+                    } catch (error) {
+                        this.addLogEntry('error', `Failed to parse message: ${error.message}`);
+                    }
+                };
+            }
+
+            handleMessage(data) {
+                const messageType = data.type;
+
+                switch (messageType) {
+                    case 'connection_established':
+                        this.handleConnectionEstablished(data);
+                        break;
+                    
+                    case 'vessel_updates':
+                        this.handleVesselUpdates(data);
+                        break;
+                    
+                    case 'fleet_summary_update':
+                        this.handleFleetSummaryUpdate(data);
+                        break;
+                    
+                    case 'vessel_data':
+                        this.handleVesselData(data);
+                        break;
+                    
+                    case 'subscription_confirmed':
+                        this.addLogEntry('system', `Subscribed to: ${data.subscription_type}`);
+                        break;
+                    
+                    case 'error':
+                        this.addLogEntry('error', data.message);
+                        break;
+                    
+                    default:
+                        this.addLogEntry('system', `Unknown message type: ${messageType}`);
+                }
+            }
+
+            handleConnectionEstablished(data) {
+                this.addLogEntry('system', data.message);
+                
+                if (data.fleet_summary) {
+                    this.updateFleetStatistics(data.fleet_summary);
+                }
+            }
+
+            handleVesselUpdates(data) {
+                const updates = data.updates || [];
+                this.updateCount += updates.length;
+                
+                this.addLogEntry('updates', 
+                    `Received ${updates.length} vessel updates`);
+
+                // Show sample updates in log
+                updates.slice(0, 3).forEach(update => {
+                    const pos = update.position;
+                    const kin = update.kinematics;
+                    
+                    this.addLogEntry('vessel',
+                        `<span class="log-vessel">${update.vessel_name}</span> ` +
+                        `<span class="log-position">(${pos.latitude.toFixed(4)}, ${pos.longitude.toFixed(4)})</span> ` +
+                        `${kin.speed_over_ground}kts ` +
+                        `<span class="log-status">${update.status}</span>`
+                    );
+
+                    // Add to recent vessels
+                    this.recentVessels.set(update.imo_number, {
+                        ...update,
+                        lastUpdate: Date.now()
+                    });
+                });
+
+                this.updateRecentVessels();
+            }
+
+            handleFleetSummaryUpdate(data) {
+                if (data.summary) {
+                    this.updateFleetStatistics(data.summary);
+                    this.addLogEntry('system', 'Fleet summary updated');
+                }
+            }
+
+            handleVesselData(data) {
+                if (data.vessel) {
+                    this.addLogEntry('vessel', 
+                        `Retrieved data for ${data.vessel.vessel_name}`);
+                }
+            }
+
+            updateConnectionStatus(status) {
+                const statusElement = document.getElementById('connection-status');
+                statusElement.className = `connection-status status-${status}`;
+                
+                switch (status) {
+                    case 'connected':
+                        statusElement.innerHTML = '🟢 Connected';
+                        break;
+                    case 'disconnected':
+                        statusElement.innerHTML = '🔴 Disconnected';
+                        break;
+                    case 'connecting':
+                        statusElement.innerHTML = '<span class="loading"></span> Connecting...';
+                        break;
+                }
+            }
+
+            updateFleetStatistics(summary) {
+                document.getElementById('total-vessels').textContent = 
+                    summary.total_vessels || 0;
+
+                const statusDist = summary.status_distribution || {};
+                const activeVessels = (statusDist.at_sea || 0) + (statusDist.anchored || 0);
+                const inPortVessels = statusDist.in_port || 0;
+
+                document.getElementById('active-vessels').textContent = activeVessels;
+                document.getElementById('in-port-vessels').textContent = inPortVessels;
+
+                // Update vessel type badges
+                const typesContainer = document.getElementById('vessel-types');
+                const typeDist = summary.type_distribution || {};
+                
+                typesContainer.innerHTML = '';
+                Object.entries(typeDist).forEach(([type, count]) => {
+                    const badge = document.createElement('div');
+                    badge.className = `type-badge type-${type}`;
+                    badge.textContent = `${type.replace('_', ' ').toUpperCase()}: ${count}`;
+                    typesContainer.appendChild(badge);
+                });
+            }
+
+            updateRecentVessels() {
+                const container = document.getElementById('recent-vessels');
+                const vessels = Array.from(this.recentVessels.values())
+                    .sort((a, b) => b.lastUpdate - a.lastUpdate)
+                    .slice(0, 10);
+
+                container.innerHTML = '';
+                vessels.forEach(vessel => {
+                    const vesselDiv = document.createElement('div');
+                    vesselDiv.className = 'vessel-item';
+                    
+                    // Add updating class if recently updated (within last 30 seconds)
+                    if (Date.now() - vessel.lastUpdate < 30000) {
+                        vesselDiv.classList.add('updating');
+                    }
+
+                    vesselDiv.innerHTML = `
+                        <div class="vessel-name">${vessel.vessel_name}</div>
+                        <div class="vessel-info">
+                            ${vessel.vessel_type.replace('_', ' ').toUpperCase()} • 
+                            ${vessel.kinematics.speed_over_ground}kts • 
+                            ${vessel.status.replace('_', ' ').toUpperCase()}
+                        </div>
+                        <div class="vessel-info">
+                            ${vessel.position.latitude.toFixed(4)}, ${vessel.position.longitude.toFixed(4)}
+                        </div>
+                    `;
+
+                    vesselDiv.onclick = () => {
+                        this.requestVesselData(vessel.imo_number);
+                    };
+
+                    container.appendChild(vesselDiv);
+                });
+            }
+
+            startUpdateRateCalculation() {
+                setInterval(() => {
+                    const minutes = (Date.now() - this.startTime) / (1000 * 60);
+                    const rate = Math.round(this.updateCount / minutes);
+                    document.getElementById('updates-per-min').textContent = rate;
+                }, 5000);
+            }
+
+            addLogEntry(type, message) {
+                const logContainer = document.getElementById('update-log');
+                const entry = document.createElement('div');
+                entry.className = 'log-entry';
+                
+                const timestamp = new Date().toLocaleTimeString();
+                entry.innerHTML = `
+                    <span class="log-timestamp">[${timestamp}]</span> 
+                    ${message}
+                `;
+                
+                logContainer.appendChild(entry);
+                
+                // Auto-scroll to bottom if enabled
+                if (this.autoScroll) {
+                    logContainer.scrollTop = logContainer.scrollHeight;
+                }
+                
+                // Keep only last 100 entries
+                while (logContainer.children.length > 100) {
+                    logContainer.removeChild(logContainer.firstChild);
+                }
+            }
+
+            sendMessage(message) {
+                if (this.websocket && this.isConnected) {
+                    this.websocket.send(JSON.stringify(message));
+                }
+            }
+
+            requestVesselData(imoNumber) {
+                this.sendMessage({
+                    type: 'get_vessel',
+                    imo_number: imoNumber
+                });
+            }
+
+            requestFleetSummary() {
+                this.sendMessage({
+                    type: 'get_fleet_summary'
+                });
+                this.addLogEntry('system', 'Requesting fleet summary...');
+            }
+
+            toggleAutoScroll() {
+                this.autoScroll = !this.autoScroll;
+                const btn = event.target;
+                btn.textContent = this.autoScroll ? 'Disable Auto-scroll' : 'Enable Auto-scroll';
+                
+                this.addLogEntry('system', 
+                    `Auto-scroll ${this.autoScroll ? 'enabled' : 'disabled'}`);
+            }
+        }
+
+        // Global functions for button handlers
+        function requestFleetSummary() {
+            window.dashboard.requestFleetSummary();
+        }
+
+        function toggleAutoScroll() {
+            window.dashboard.toggleAutoScroll();
+        }
+
+        // Initialize dashboard when page loads
+        document.addEventListener('DOMContentLoaded', () => {
+            window.dashboard = new RealtimeAISDashboard();
+        });
+    </script>
+</body>
+</html>

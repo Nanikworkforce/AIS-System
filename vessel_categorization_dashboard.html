@@ -1,0 +1,1087 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Vessel Categorization Dashboard</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: #333;
+            min-height: 100vh;
+        }
+
+        .header {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            padding: 1.5rem 2rem;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+            border-bottom: 1px solid rgba(255, 255, 255, 0.2);
+        }
+
+        .header-content {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+
+        .header h1 {
+            font-size: 2.5rem;
+            font-weight: 700;
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .connection-status {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 0.75rem 1.5rem;
+            border-radius: 50px;
+            font-weight: 600;
+            transition: all 0.3s ease;
+        }
+
+        .status-connected {
+            background: linear-gradient(135deg, #10b981, #059669);
+            color: white;
+            box-shadow: 0 4px 15px rgba(16, 185, 129, 0.3);
+        }
+
+        .status-disconnected {
+            background: linear-gradient(135deg, #ef4444, #dc2626);
+            color: white;
+            box-shadow: 0 4px 15px rgba(239, 68, 68, 0.3);
+        }
+
+        .main-container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 2rem;
+            display: grid;
+            gap: 2rem;
+        }
+
+        .top-section {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 2rem;
+        }
+
+        .date-query-section {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            border-radius: 20px;
+            padding: 2rem;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+
+        .date-query-section h2 {
+            font-size: 1.5rem;
+            margin-bottom: 1.5rem;
+            color: #374151;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .date-inputs {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 1rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .date-input-group {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .date-input-group label {
+            font-weight: 600;
+            margin-bottom: 0.5rem;
+            color: #6b7280;
+            font-size: 0.875rem;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+
+        .date-input-group input {
+            padding: 0.75rem 1rem;
+            border: 2px solid #e5e7eb;
+            border-radius: 12px;
+            font-size: 1rem;
+            transition: all 0.3s ease;
+            background: rgba(255, 255, 255, 0.8);
+        }
+
+        .date-input-group input:focus {
+            outline: none;
+            border-color: #3b82f6;
+            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+        }
+
+        .fleet-overview {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            border-radius: 20px;
+            padding: 2rem;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+
+        .overview-stats {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 1rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .stat-card {
+            background: linear-gradient(135deg, #f8fafc, #e2e8f0);
+            padding: 1.5rem;
+            border-radius: 16px;
+            text-align: center;
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            transition: transform 0.3s ease;
+        }
+
+        .stat-card:hover {
+            transform: translateY(-2px);
+        }
+
+        .stat-number {
+            font-size: 2.5rem;
+            font-weight: 800;
+            margin-bottom: 0.5rem;
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .stat-label {
+            font-size: 0.875rem;
+            color: #6b7280;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            font-weight: 600;
+        }
+
+        .vessel-categories {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+            gap: 2rem;
+            margin-top: 2rem;
+        }
+
+        .category-card {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            border-radius: 20px;
+            overflow: hidden;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            transition: all 0.3s ease;
+            cursor: pointer;
+        }
+
+        .category-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.15);
+        }
+
+        .category-header {
+            padding: 2rem;
+            text-align: center;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .category-header::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            opacity: 0.1;
+            transition: opacity 0.3s ease;
+        }
+
+        .category-card:hover .category-header::before {
+            opacity: 0.2;
+        }
+
+        .category-tanker .category-header::before {
+            background: linear-gradient(135deg, #ef4444, #dc2626);
+        }
+
+        .category-container .category-header::before {
+            background: linear-gradient(135deg, #3b82f6, #2563eb);
+        }
+
+        .category-bulker .category-header::before {
+            background: linear-gradient(135deg, #f59e0b, #d97706);
+        }
+
+        .category-general_cargo .category-header::before {
+            background: linear-gradient(135deg, #10b981, #059669);
+        }
+
+        .category-icon {
+            font-size: 3rem;
+            margin-bottom: 1rem;
+            display: block;
+        }
+
+        .category-title {
+            font-size: 1.5rem;
+            font-weight: 700;
+            margin-bottom: 0.5rem;
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+        }
+
+        .category-subtitle {
+            color: #6b7280;
+            font-size: 0.875rem;
+            margin-bottom: 1rem;
+        }
+
+        .category-stats {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 1rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .category-stat {
+            text-align: center;
+        }
+
+        .category-stat-number {
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: #374151;
+        }
+
+        .category-stat-label {
+            font-size: 0.75rem;
+            color: #9ca3af;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+
+        .category-body {
+            padding: 0 2rem 2rem;
+        }
+
+        .vessel-list {
+            max-height: 300px;
+            overflow-y: auto;
+            scrollbar-width: thin;
+            scrollbar-color: #cbd5e1 transparent;
+        }
+
+        .vessel-list::-webkit-scrollbar {
+            width: 4px;
+        }
+
+        .vessel-list::-webkit-scrollbar-track {
+            background: transparent;
+        }
+
+        .vessel-list::-webkit-scrollbar-thumb {
+            background: #cbd5e1;
+            border-radius: 2px;
+        }
+
+        .vessel-item {
+            padding: 1rem;
+            border: 2px solid #f1f5f9;
+            border-radius: 12px;
+            margin-bottom: 0.75rem;
+            transition: all 0.3s ease;
+            background: rgba(248, 250, 252, 0.5);
+        }
+
+        .vessel-item:hover {
+            border-color: #3b82f6;
+            background: rgba(59, 130, 246, 0.05);
+            transform: translateX(4px);
+        }
+
+        .vessel-name {
+            font-weight: 700;
+            color: #1f2937;
+            margin-bottom: 0.5rem;
+            font-size: 1rem;
+        }
+
+        .vessel-details {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 0.5rem;
+            font-size: 0.875rem;
+        }
+
+        .vessel-detail {
+            display: flex;
+            justify-content: space-between;
+            color: #6b7280;
+        }
+
+        .vessel-detail-label {
+            font-weight: 600;
+        }
+
+        .btn {
+            padding: 0.75rem 1.5rem;
+            border: none;
+            border-radius: 12px;
+            cursor: pointer;
+            font-weight: 600;
+            font-size: 0.875rem;
+            transition: all 0.3s ease;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #3b82f6, #2563eb);
+            color: white;
+            box-shadow: 0 4px 15px rgba(59, 130, 246, 0.3);
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px rgba(59, 130, 246, 0.4);
+        }
+
+        .btn-secondary {
+            background: linear-gradient(135deg, #6b7280, #4b5563);
+            color: white;
+            box-shadow: 0 4px 15px rgba(107, 114, 128, 0.3);
+        }
+
+        .btn-secondary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px rgba(107, 114, 128, 0.4);
+        }
+
+        .loading {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 3px solid rgba(255, 255, 255, 0.3);
+            border-top: 3px solid #fff;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 1000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.5);
+            backdrop-filter: blur(5px);
+        }
+
+        .modal-content {
+            background: white;
+            margin: 5% auto;
+            padding: 0;
+            border-radius: 20px;
+            width: 90%;
+            max-width: 800px;
+            max-height: 80vh;
+            overflow-y: auto;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+        }
+
+        .modal-header {
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            color: white;
+            padding: 2rem;
+            border-radius: 20px 20px 0 0;
+            position: relative;
+        }
+
+        .modal-title {
+            font-size: 1.75rem;
+            font-weight: 700;
+            margin-bottom: 0.5rem;
+        }
+
+        .modal-subtitle {
+            opacity: 0.9;
+            font-size: 1rem;
+        }
+
+        .close {
+            position: absolute;
+            top: 1rem;
+            right: 1.5rem;
+            color: white;
+            font-size: 2rem;
+            font-weight: bold;
+            cursor: pointer;
+            transition: opacity 0.3s ease;
+        }
+
+        .close:hover {
+            opacity: 0.7;
+        }
+
+        .modal-body {
+            padding: 2rem;
+        }
+
+        .vessel-info-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 1.5rem;
+            margin-bottom: 2rem;
+        }
+
+        .info-section {
+            background: #f8fafc;
+            padding: 1.5rem;
+            border-radius: 12px;
+            border-left: 4px solid #3b82f6;
+        }
+
+        .info-section h4 {
+            font-size: 1.125rem;
+            font-weight: 700;
+            margin-bottom: 1rem;
+            color: #374151;
+        }
+
+        .info-item {
+            display: flex;
+            justify-content: space-between;
+            padding: 0.5rem 0;
+            border-bottom: 1px solid #e5e7eb;
+        }
+
+        .info-item:last-child {
+            border-bottom: none;
+        }
+
+        .info-label {
+            font-weight: 600;
+            color: #6b7280;
+        }
+
+        .info-value {
+            color: #374151;
+            font-weight: 500;
+        }
+
+        .alert {
+            padding: 1rem 1.5rem;
+            border-radius: 12px;
+            margin-bottom: 1rem;
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+        }
+
+        .alert-info {
+            background: rgba(59, 130, 246, 0.1);
+            color: #1e40af;
+            border: 1px solid rgba(59, 130, 246, 0.2);
+        }
+
+        .alert-warning {
+            background: rgba(245, 158, 11, 0.1);
+            color: #92400e;
+            border: 1px solid rgba(245, 158, 11, 0.2);
+        }
+
+        @media (max-width: 768px) {
+            .top-section {
+                grid-template-columns: 1fr;
+            }
+
+            .overview-stats {
+                grid-template-columns: repeat(2, 1fr);
+            }
+
+            .vessel-categories {
+                grid-template-columns: 1fr;
+            }
+
+            .date-inputs {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <div class="header-content">
+            <h1>🚢 Vessel Fleet Dashboard</h1>
+            <div id="connection-status" class="connection-status status-disconnected">
+                <span class="loading"></span> Connecting...
+            </div>
+        </div>
+    </div>
+
+    <div class="main-container">
+        <div class="top-section">
+            <div class="date-query-section">
+                <h2>📅 Date-Based Query System</h2>
+                <div class="date-inputs">
+                    <div class="date-input-group">
+                        <label for="start-date">Start Date</label>
+                        <input type="datetime-local" id="start-date" />
+                    </div>
+                    <div class="date-input-group">
+                        <label for="end-date">End Date</label>
+                        <input type="datetime-local" id="end-date" />
+                    </div>
+                </div>
+                <button class="btn btn-primary" onclick="queryByDateRange()">
+                    🔍 Query Historical Data
+                </button>
+                <div id="query-results" style="margin-top: 1rem;"></div>
+            </div>
+
+            <div class="fleet-overview">
+                <h2>📊 Fleet Overview</h2>
+                <div class="overview-stats">
+                    <div class="stat-card">
+                        <div class="stat-number" id="total-vessels">0</div>
+                        <div class="stat-label">Total Vessels</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-number" id="active-vessels">0</div>
+                        <div class="stat-label">At Sea</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-number" id="port-vessels">0</div>
+                        <div class="stat-label">In Port</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-number" id="dry-dock-vessels">0</div>
+                        <div class="stat-label">Dry Dock</div>
+                    </div>
+                </div>
+                <button class="btn btn-secondary" onclick="refreshFleetData()">
+                    🔄 Refresh Data
+                </button>
+            </div>
+        </div>
+
+        <div class="vessel-categories" id="vessel-categories">
+            <!-- Categories will be populated by JavaScript -->
+        </div>
+    </div>
+
+    <!-- Vessel Details Modal -->
+    <div id="vessel-modal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <span class="close">&times;</span>
+                <h2 class="modal-title" id="modal-vessel-name">Vessel Details</h2>
+                <p class="modal-subtitle" id="modal-vessel-type">Loading...</p>
+            </div>
+            <div class="modal-body" id="modal-body">
+                <!-- Content will be populated by JavaScript -->
+            </div>
+        </div>
+    </div>
+
+    <script>
+        class VesselDashboard {
+            constructor() {
+                this.websocket = null;
+                this.isConnected = false;
+                this.fleetData = {};
+                this.vesselCategories = ['tanker', 'container', 'bulker', 'general_cargo'];
+                this.categoryData = {};
+                
+                this.initializeWebSocket();
+                this.setupModal();
+                this.setDefaultDates();
+            }
+
+            initializeWebSocket() {
+                const wsUrl = 'ws://localhost:8766'; // Enhanced server URL
+                this.updateConnectionStatus('connecting');
+                
+                try {
+                    this.websocket = new WebSocket(wsUrl);
+                    this.setupWebSocketHandlers();
+                } catch (error) {
+                    console.error('Failed to connect:', error);
+                    this.updateConnectionStatus('disconnected');
+                }
+            }
+
+            setupWebSocketHandlers() {
+                this.websocket.onopen = () => {
+                    this.isConnected = true;
+                    this.updateConnectionStatus('connected');
+                    this.requestFleetStatistics();
+                    this.loadAllCategories();
+                };
+
+                this.websocket.onclose = () => {
+                    this.isConnected = false;
+                    this.updateConnectionStatus('disconnected');
+                    
+                    setTimeout(() => {
+                        this.initializeWebSocket();
+                    }, 5000);
+                };
+
+                this.websocket.onerror = (error) => {
+                    console.error('WebSocket error:', error);
+                    this.updateConnectionStatus('disconnected');
+                    // Try to reconnect after a delay
+                    setTimeout(() => {
+                        if (!this.isConnected) {
+                            this.initializeWebSocket();
+                        }
+                    }, 3000);
+                };
+
+                this.websocket.onmessage = (event) => {
+                    try {
+                        const data = JSON.parse(event.data);
+                        this.handleMessage(data);
+                    } catch (error) {
+                        console.error('Failed to parse message:', error);
+                    }
+                };
+            }
+
+            handleMessage(data) {
+                switch (data.type) {
+                    case 'connection_established':
+                        if (data.fleet_statistics) {
+                            this.updateFleetOverview(data.fleet_statistics);
+                        }
+                        break;
+                    
+                    case 'fleet_statistics':
+                        this.updateFleetOverview(data.data);
+                        break;
+                    
+                    case 'vessels_by_type':
+                        this.updateCategoryData(data.vessel_type, data.data);
+                        break;
+                    
+                    case 'vessel_details':
+                        this.showVesselDetails(data.data);
+                        break;
+                    
+                    case 'historical_data':
+                        this.displayHistoricalData(data);
+                        break;
+                    
+                    case 'vessel_position_updates':
+                        // Handle real-time position updates
+                        break;
+                }
+            }
+
+            updateConnectionStatus(status) {
+                const statusElement = document.getElementById('connection-status');
+                statusElement.className = `connection-status status-${status}`;
+                
+                switch (status) {
+                    case 'connected':
+                        statusElement.innerHTML = '🟢 Connected';
+                        break;
+                    case 'disconnected':
+                        statusElement.innerHTML = '🔴 Disconnected - Retrying...';
+                        break;
+                    case 'connecting':
+                        statusElement.innerHTML = '<span class="loading"></span> Connecting...';
+                        break;
+                }
+            }
+
+            updateFleetOverview(stats) {
+                this.fleetData = stats;
+                
+                document.getElementById('total-vessels').textContent = stats.total_vessels;
+                
+                const statusData = stats.vessel_status;
+                document.getElementById('active-vessels').textContent = statusData.at_sea?.count || 0;
+                document.getElementById('port-vessels').textContent = statusData.in_port?.count || 0;
+                document.getElementById('dry-dock-vessels').textContent = statusData.dry_dock?.count || 0;
+            }
+
+            loadAllCategories() {
+                this.vesselCategories.forEach(category => {
+                    this.requestVesselsByType(category);
+                });
+            }
+
+            updateCategoryData(vesselType, vessels) {
+                this.categoryData[vesselType] = vessels;
+                this.renderCategories();
+            }
+
+            renderCategories() {
+                const container = document.getElementById('vessel-categories');
+                container.innerHTML = '';
+
+                this.vesselCategories.forEach(category => {
+                    const vessels = this.categoryData[category] || [];
+                    const categoryStats = this.fleetData.vessel_types?.[category] || {};
+                    
+                    const categoryCard = this.createCategoryCard(category, vessels, categoryStats);
+                    container.appendChild(categoryCard);
+                });
+            }
+
+            createCategoryCard(category, vessels, stats) {
+                const card = document.createElement('div');
+                card.className = `category-card category-${category}`;
+                card.onclick = () => this.toggleCategoryExpanded(card);
+
+                const icons = {
+                    tanker: '🛢️',
+                    container: '📦',
+                    bulker: '⚓',
+                    general_cargo: '🚢'
+                };
+
+                const titles = {
+                    tanker: 'Tankers',
+                    container: 'Container Ships',
+                    bulker: 'Bulk Carriers',
+                    general_cargo: 'General Cargo'
+                };
+
+                card.innerHTML = `
+                    <div class="category-header">
+                        <span class="category-icon">${icons[category]}</span>
+                        <h3 class="category-title">${titles[category]}</h3>
+                        <p class="category-subtitle">${vessels.length} vessels in fleet</p>
+                        <div class="category-stats">
+                            <div class="category-stat">
+                                <div class="category-stat-number">${stats.at_sea || 0}</div>
+                                <div class="category-stat-label">At Sea</div>
+                            </div>
+                            <div class="category-stat">
+                                <div class="category-stat-number">${stats.in_port || 0}</div>
+                                <div class="category-stat-label">In Port</div>
+                            </div>
+                            <div class="category-stat">
+                                <div class="category-stat-number">${Math.round(stats.average_age || 0)}</div>
+                                <div class="category-stat-label">Avg Age</div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="category-body" style="display: none;">
+                        <div class="vessel-list">
+                            ${vessels.map(vessel => this.createVesselItem(vessel)).join('')}
+                        </div>
+                    </div>
+                `;
+
+                return card;
+            }
+
+            createVesselItem(vessel) {
+                return `
+                    <div class="vessel-item" onclick="dashboard.requestVesselDetails('${vessel.imo_number}')">
+                        <div class="vessel-name">${vessel.vessel_name}</div>
+                        <div class="vessel-details">
+                            <div class="vessel-detail">
+                                <span class="vessel-detail-label">Age:</span>
+                                <span>${vessel.details.age_years} years</span>
+                            </div>
+                            <div class="vessel-detail">
+                                <span class="vessel-detail-label">Status:</span>
+                                <span>${vessel.navigation.status.replace('_', ' ').toUpperCase()}</span>
+                            </div>
+                            <div class="vessel-detail">
+                                <span class="vessel-detail-label">Flag:</span>
+                                <span>${vessel.details.flag_country}</span>
+                            </div>
+                            <div class="vessel-detail">
+                                <span class="vessel-detail-label">Last Dry Dock:</span>
+                                <span>${vessel.dry_dock.days_since_dry_dock} days ago</span>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }
+
+            toggleCategoryExpanded(card) {
+                const body = card.querySelector('.category-body');
+                const isExpanded = body.style.display !== 'none';
+                
+                body.style.display = isExpanded ? 'none' : 'block';
+                card.style.transform = isExpanded ? '' : 'scale(1.02)';
+            }
+
+            setupModal() {
+                const modal = document.getElementById('vessel-modal');
+                const closeBtn = document.getElementsByClassName('close')[0];
+                
+                closeBtn.onclick = () => {
+                    modal.style.display = 'none';
+                };
+                
+                window.onclick = (event) => {
+                    if (event.target === modal) {
+                        modal.style.display = 'none';
+                    }
+                };
+            }
+
+            showVesselDetails(vessel) {
+                const modal = document.getElementById('vessel-modal');
+                const modalBody = document.getElementById('modal-body');
+                
+                document.getElementById('modal-vessel-name').textContent = vessel.vessel_name;
+                document.getElementById('modal-vessel-type').textContent = 
+                    vessel.vessel_type.replace('_', ' ').toUpperCase();
+
+                modalBody.innerHTML = `
+                    ${vessel.dry_dock.days_to_next_dry_dock < 0 ? 
+                        '<div class="alert alert-warning">⚠️ Vessel is overdue for dry dock maintenance</div>' : 
+                        ''}
+                    
+                    <div class="vessel-info-grid">
+                        <div class="info-section">
+                            <h4>🔧 Technical Specifications</h4>
+                            <div class="info-item">
+                                <span class="info-label">Length:</span>
+                                <span class="info-value">${vessel.specifications.length}m</span>
+                            </div>
+                            <div class="info-item">
+                                <span class="info-label">Beam:</span>
+                                <span class="info-value">${vessel.specifications.beam}m</span>
+                            </div>
+                            <div class="info-item">
+                                <span class="info-label">Gross Tonnage:</span>
+                                <span class="info-value">${vessel.specifications.gross_tonnage.toLocaleString()}</span>
+                            </div>
+                            <div class="info-item">
+                                <span class="info-label">Deadweight:</span>
+                                <span class="info-value">${vessel.specifications.deadweight.toLocaleString()}</span>
+                            </div>
+                            <div class="info-item">
+                                <span class="info-label">Cargo Capacity:</span>
+                                <span class="info-value">${vessel.specifications.cargo_capacity}</span>
+                            </div>
+                        </div>
+
+                        <div class="info-section">
+                            <h4>📋 Vessel Information</h4>
+                            <div class="info-item">
+                                <span class="info-label">IMO Number:</span>
+                                <span class="info-value">${vessel.imo_number}</span>
+                            </div>
+                            <div class="info-item">
+                                <span class="info-label">MMSI:</span>
+                                <span class="info-value">${vessel.mmsi}</span>
+                            </div>
+                            <div class="info-item">
+                                <span class="info-label">Build Year:</span>
+                                <span class="info-value">${vessel.details.build_year}</span>
+                            </div>
+                            <div class="info-item">
+                                <span class="info-label">Age:</span>
+                                <span class="info-value">${vessel.details.age_years} years</span>
+                            </div>
+                            <div class="info-item">
+                                <span class="info-label">Flag Country:</span>
+                                <span class="info-value">${vessel.details.flag_country}</span>
+                            </div>
+                            <div class="info-item">
+                                <span class="info-label">Operator:</span>
+                                <span class="info-value">${vessel.details.operator}</span>
+                            </div>
+                        </div>
+
+                        <div class="info-section">
+                            <h4>🔧 Dry Dock History</h4>
+                            <div class="info-item">
+                                <span class="info-label">Last Dry Dock:</span>
+                                <span class="info-value">${new Date(vessel.dry_dock.last_dry_dock).toLocaleDateString()}</span>
+                            </div>
+                            <div class="info-item">
+                                <span class="info-label">Days Since:</span>
+                                <span class="info-value">${vessel.dry_dock.days_since_dry_dock} days</span>
+                            </div>
+                            <div class="info-item">
+                                <span class="info-label">Duration:</span>
+                                <span class="info-value">${vessel.dry_dock.last_duration_days} days</span>
+                            </div>
+                            <div class="info-item">
+                                <span class="info-label">Next Scheduled:</span>
+                                <span class="info-value">${new Date(vessel.dry_dock.next_dry_dock).toLocaleDateString()}</span>
+                            </div>
+                            <div class="info-item">
+                                <span class="info-label">Days Until:</span>
+                                <span class="info-value">${vessel.dry_dock.days_to_next_dry_dock} days</span>
+                            </div>
+                        </div>
+
+                        <div class="info-section">
+                            <h4>📍 Current Location</h4>
+                            <div class="info-item">
+                                <span class="info-label">Latitude:</span>
+                                <span class="info-value">${vessel.position.latitude.toFixed(6)}</span>
+                            </div>
+                            <div class="info-item">
+                                <span class="info-label">Longitude:</span>
+                                <span class="info-value">${vessel.position.longitude.toFixed(6)}</span>
+                            </div>
+                            <div class="info-item">
+                                <span class="info-label">Speed:</span>
+                                <span class="info-value">${vessel.navigation.speed} knots</span>
+                            </div>
+                            <div class="info-item">
+                                <span class="info-label">Status:</span>
+                                <span class="info-value">${vessel.navigation.status.replace('_', ' ').toUpperCase()}</span>
+                            </div>
+                            ${vessel.ports.current_port ? `
+                                <div class="info-item">
+                                    <span class="info-label">Current Port:</span>
+                                    <span class="info-value">${vessel.ports.current_port.name}, ${vessel.ports.current_port.country}</span>
+                                </div>
+                            ` : ''}
+                            ${vessel.ports.destination_port ? `
+                                <div class="info-item">
+                                    <span class="info-label">Destination:</span>
+                                    <span class="info-value">${vessel.ports.destination_port.name}, ${vessel.ports.destination_port.country}</span>
+                                </div>
+                                <div class="info-item">
+                                    <span class="info-label">ETA:</span>
+                                    <span class="info-value">${new Date(vessel.ports.eta).toLocaleString()}</span>
+                                </div>
+                            ` : ''}
+                        </div>
+                    </div>
+                `;
+
+                modal.style.display = 'block';
+            }
+
+            setDefaultDates() {
+                const now = new Date();
+                const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+                
+                document.getElementById('start-date').value = 
+                    thirtyDaysAgo.toISOString().slice(0, 16);
+                document.getElementById('end-date').value = 
+                    now.toISOString().slice(0, 16);
+            }
+
+            displayHistoricalData(data) {
+                const resultsContainer = document.getElementById('query-results');
+                const vesselCount = Object.keys(data.data).length;
+                
+                if (vesselCount === 0) {
+                    resultsContainer.innerHTML = `
+                        <div class="alert alert-info">
+                            📊 No historical data found for the selected date range.
+                        </div>
+                    `;
+                } else {
+                    resultsContainer.innerHTML = `
+                        <div class="alert alert-info">
+                            📊 Found historical data for ${vesselCount} vessels between 
+                            ${new Date(data.start_date).toLocaleDateString()} and 
+                            ${new Date(data.end_date).toLocaleDateString()}
+                        </div>
+                    `;
+                }
+            }
+
+            sendMessage(message) {
+                if (this.websocket && this.isConnected) {
+                    this.websocket.send(JSON.stringify(message));
+                }
+            }
+
+            requestFleetStatistics() {
+                this.sendMessage({ type: 'get_fleet_statistics' });
+            }
+
+            requestVesselsByType(vesselType) {
+                this.sendMessage({ 
+                    type: 'get_vessels_by_type', 
+                    vessel_type: vesselType 
+                });
+            }
+
+            requestVesselDetails(imoNumber) {
+                this.sendMessage({ 
+                    type: 'get_vessel_details', 
+                    imo_number: imoNumber 
+                });
+            }
+
+            queryByDateRange() {
+                const startDate = document.getElementById('start-date').value;
+                const endDate = document.getElementById('end-date').value;
+                
+                if (!startDate || !endDate) {
+                    alert('Please select both start and end dates');
+                    return;
+                }
+                
+                this.sendMessage({
+                    type: 'query_by_date',
+                    start_date: startDate,
+                    end_date: endDate
+                });
+            }
+
+            refreshFleetData() {
+                this.requestFleetStatistics();
+                this.loadAllCategories();
+            }
+        }
+
+        // Global functions
+        function queryByDateRange() {
+            window.dashboard.queryByDateRange();
+        }
+
+        function refreshFleetData() {
+            window.dashboard.refreshFleetData();
+        }
+
+        // Initialize dashboard
+        document.addEventListener('DOMContentLoaded', () => {
+            window.dashboard = new VesselDashboard();
+        });
+    </script>
+</body>
+</html>

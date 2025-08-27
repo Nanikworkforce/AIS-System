@@ -1,0 +1,36 @@
+{
+  "fleet_summary": {
+    "total_vessels": 1000,
+    "average_age": 15.06,
+    "vessels_over_20_years": 313,
+    "vessels_over_25_years": 166
+  },
+  "vessel_types": {
+    "counts": {
+      "container": 250,
+      "tanker": 252,
+      "general_cargo": 250,
+      "bulker": 248
+    },
+    "percentages": {
+      "container": 25.0,
+      "tanker": 25.2,
+      "general_cargo": 25.0,
+      "bulker": 24.8
+    }
+  },
+  "flag_states": {
+    "Liberia": 158,
+    "Singapore": 137,
+    "Panama": 144,
+    "Marshall Islands": 148,
+    "Malta": 151,
+    "China": 125,
+    "Greece": 137
+  },
+  "dry_dock_analysis": {
+    "total_dry_dock_days": 76831,
+    "average_days_per_vessel": 76.83,
+    "high_maintenance_vessels": 338
+  }
+}

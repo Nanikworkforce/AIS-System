@@ -1,0 +1,932 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Live AIS Dashboard - AISStream.io Integration</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: #333;
+            min-height: 100vh;
+        }
+
+        .header {
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(10px);
+            color: white;
+            padding: 1rem 2rem;
+            text-align: center;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.2);
+        }
+
+        .header h1 {
+            font-size: 2.5rem;
+            margin-bottom: 0.5rem;
+            text-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+        }
+
+        .header p {
+            font-size: 1.1rem;
+            opacity: 0.9;
+        }
+
+        .connection-status {
+            display: inline-block;
+            padding: 0.5rem 1rem;
+            border-radius: 25px;
+            font-size: 0.875rem;
+            font-weight: 600;
+            margin-top: 1rem;
+            border: 2px solid rgba(255, 255, 255, 0.3);
+        }
+
+        .status-connected {
+            background: linear-gradient(135deg, #10b981, #059669);
+            color: white;
+            box-shadow: 0 4px 15px rgba(16, 185, 129, 0.3);
+        }
+
+        .status-disconnected {
+            background: linear-gradient(135deg, #ef4444, #dc2626);
+            color: white;
+            box-shadow: 0 4px 15px rgba(239, 68, 68, 0.3);
+        }
+
+        .status-connecting {
+            background: linear-gradient(135deg, #f59e0b, #d97706);
+            color: white;
+            box-shadow: 0 4px 15px rgba(245, 158, 11, 0.3);
+        }
+
+        .live-indicator {
+            display: inline-block;
+            width: 8px;
+            height: 8px;
+            background: #10b981;
+            border-radius: 50%;
+            margin-right: 0.5rem;
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+
+        .main-container {
+            display: grid;
+            grid-template-columns: 1fr 2fr;
+            gap: 2rem;
+            padding: 2rem;
+            min-height: calc(100vh - 140px);
+        }
+
+        .sidebar, .main-content {
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(10px);
+            border-radius: 16px;
+            padding: 2rem;
+            box-shadow: 0 8px 32px rgba(31, 38, 135, 0.37);
+            border: 1px solid rgba(255, 255, 255, 0.18);
+        }
+
+        .section h3 {
+            font-size: 1.3rem;
+            margin-bottom: 1.5rem;
+            color: white;
+            border-bottom: 2px solid rgba(255, 255, 255, 0.3);
+            padding-bottom: 0.5rem;
+            display: flex;
+            align-items: center;
+        }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 1rem;
+            margin-bottom: 2rem;
+        }
+
+        .stat-card {
+            background: rgba(255, 255, 255, 0.2);
+            padding: 1.5rem;
+            border-radius: 12px;
+            text-align: center;
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+
+        .stat-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 12px 40px rgba(31, 38, 135, 0.5);
+        }
+
+        .stat-card.live { 
+            border-left: 4px solid #10b981;
+            background: linear-gradient(135deg, rgba(16, 185, 129, 0.2), rgba(5, 150, 105, 0.1));
+        }
+        .stat-card.simulated { 
+            border-left: 4px solid #3b82f6;
+            background: linear-gradient(135deg, rgba(59, 130, 246, 0.2), rgba(37, 99, 235, 0.1));
+        }
+        .stat-card.total { 
+            border-left: 4px solid #f59e0b;
+            background: linear-gradient(135deg, rgba(245, 158, 11, 0.2), rgba(217, 119, 6, 0.1));
+        }
+        .stat-card.updates { 
+            border-left: 4px solid #8b5cf6;
+            background: linear-gradient(135deg, rgba(139, 92, 246, 0.2), rgba(124, 58, 237, 0.1));
+        }
+
+        .stat-number {
+            font-size: 2.5rem;
+            font-weight: 700;
+            margin-bottom: 0.5rem;
+            color: white;
+            text-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+        }
+
+        .stat-label {
+            font-size: 0.875rem;
+            color: rgba(255, 255, 255, 0.8);
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            font-weight: 500;
+        }
+
+        .data-source-toggle {
+            display: flex;
+            gap: 1rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .toggle-btn {
+            flex: 1;
+            padding: 0.75rem;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: 600;
+            transition: all 0.2s;
+        }
+
+        .toggle-btn.active {
+            background: rgba(255, 255, 255, 0.9);
+            color: #333;
+            box-shadow: 0 4px 15px rgba(255, 255, 255, 0.3);
+        }
+
+        .toggle-btn.inactive {
+            background: rgba(255, 255, 255, 0.1);
+            color: rgba(255, 255, 255, 0.7);
+            border: 1px solid rgba(255, 255, 255, 0.3);
+        }
+
+        .vessel-list {
+            max-height: 400px;
+            overflow-y: auto;
+            scrollbar-width: thin;
+            scrollbar-color: rgba(255, 255, 255, 0.3) transparent;
+        }
+
+        .vessel-list::-webkit-scrollbar {
+            width: 6px;
+        }
+
+        .vessel-list::-webkit-scrollbar-track {
+            background: transparent;
+        }
+
+        .vessel-list::-webkit-scrollbar-thumb {
+            background: rgba(255, 255, 255, 0.3);
+            border-radius: 3px;
+        }
+
+        .vessel-item {
+            padding: 1rem;
+            margin-bottom: 0.75rem;
+            border-radius: 8px;
+            transition: all 0.2s;
+            cursor: pointer;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+
+        .vessel-item.live {
+            background: linear-gradient(135deg, rgba(16, 185, 129, 0.2), rgba(5, 150, 105, 0.1));
+            border-left: 4px solid #10b981;
+        }
+
+        .vessel-item.simulated {
+            background: rgba(255, 255, 255, 0.1);
+            border-left: 4px solid #3b82f6;
+        }
+
+        .vessel-item:hover {
+            background: rgba(255, 255, 255, 0.2);
+            transform: translateX(4px);
+        }
+
+        .vessel-item.updating {
+            animation: highlight 2s ease;
+        }
+
+        @keyframes highlight {
+            0%, 100% { background: rgba(255, 255, 255, 0.1); }
+            50% { background: rgba(16, 185, 129, 0.3); }
+        }
+
+        .vessel-name {
+            font-weight: 600;
+            color: white;
+            font-size: 1rem;
+            margin-bottom: 0.25rem;
+        }
+
+        .vessel-info {
+            font-size: 0.875rem;
+            color: rgba(255, 255, 255, 0.8);
+            margin-bottom: 0.25rem;
+        }
+
+        .vessel-position {
+            font-size: 0.8rem;
+            color: rgba(255, 255, 255, 0.6);
+            font-family: 'Courier New', monospace;
+        }
+
+        .update-log {
+            background: rgba(0, 0, 0, 0.3);
+            color: #f9fafb;
+            padding: 1.5rem;
+            border-radius: 12px;
+            height: 400px;
+            overflow-y: auto;
+            font-family: 'Courier New', monospace;
+            font-size: 0.875rem;
+            line-height: 1.4;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+
+        .log-entry {
+            margin-bottom: 0.75rem;
+            opacity: 0;
+            animation: fadeIn 0.3s ease forwards;
+            padding: 0.5rem;
+            border-radius: 4px;
+        }
+
+        .log-entry.live {
+            background: rgba(16, 185, 129, 0.1);
+            border-left: 3px solid #10b981;
+        }
+
+        .log-entry.simulated {
+            background: rgba(59, 130, 246, 0.1);
+            border-left: 3px solid #3b82f6;
+        }
+
+        .log-entry.system {
+            background: rgba(245, 158, 11, 0.1);
+            border-left: 3px solid #f59e0b;
+        }
+
+        @keyframes fadeIn {
+            to { opacity: 1; }
+        }
+
+        .log-timestamp {
+            color: #9ca3af;
+        }
+
+        .log-live {
+            color: #10b981;
+            font-weight: 600;
+        }
+
+        .log-vessel {
+            color: #60a5fa;
+        }
+
+        .log-position {
+            color: #34d399;
+        }
+
+        .log-status {
+            color: #fbbf24;
+        }
+
+        .controls {
+            display: flex;
+            gap: 1rem;
+            margin-bottom: 1.5rem;
+            flex-wrap: wrap;
+        }
+
+        .btn {
+            padding: 0.75rem 1.5rem;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 0.875rem;
+            font-weight: 600;
+            transition: all 0.2s;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #3b82f6, #2563eb);
+            color: white;
+            box-shadow: 0 4px 15px rgba(59, 130, 246, 0.3);
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(59, 130, 246, 0.4);
+        }
+
+        .btn-secondary {
+            background: rgba(255, 255, 255, 0.1);
+            color: white;
+            border: 1px solid rgba(255, 255, 255, 0.3);
+        }
+
+        .btn-secondary:hover {
+            background: rgba(255, 255, 255, 0.2);
+        }
+
+        .live-badge {
+            display: inline-block;
+            background: linear-gradient(135deg, #10b981, #059669);
+            color: white;
+            padding: 0.25rem 0.75rem;
+            border-radius: 12px;
+            font-size: 0.75rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            margin-left: 0.5rem;
+            box-shadow: 0 2px 8px rgba(16, 185, 129, 0.3);
+        }
+
+        .simulated-badge {
+            display: inline-block;
+            background: linear-gradient(135deg, #3b82f6, #2563eb);
+            color: white;
+            padding: 0.25rem 0.75rem;
+            border-radius: 12px;
+            font-size: 0.75rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            margin-left: 0.5rem;
+            box-shadow: 0 2px 8px rgba(59, 130, 246, 0.3);
+        }
+
+        .loading {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 3px solid rgba(255, 255, 255, 0.3);
+            border-top: 3px solid #fff;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .aisstream-status {
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 8px;
+            padding: 1rem;
+            margin-bottom: 1.5rem;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+
+        .aisstream-status h4 {
+            color: white;
+            margin-bottom: 0.5rem;
+            display: flex;
+            align-items: center;
+        }
+
+        .aisstream-stats {
+            font-size: 0.875rem;
+            color: rgba(255, 255, 255, 0.8);
+        }
+
+        @media (max-width: 768px) {
+            .main-container {
+                grid-template-columns: 1fr;
+                gap: 1rem;
+                padding: 1rem;
+            }
+            
+            .stats-grid {
+                grid-template-columns: 1fr;
+            }
+            
+            .controls {
+                flex-direction: column;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>🌊 Live AIS Dashboard</h1>
+        <p>Real-Time Marine Vessel Tracking with AISStream.io Integration</p>
+        <div id="connection-status" class="connection-status status-connecting">
+            <span class="loading"></span> Connecting to Live AIS Server...
+        </div>
+    </div>
+
+    <div class="main-container">
+        <div class="sidebar">
+            <div class="section">
+                <h3>📡 AISStream.io Status</h3>
+                <div id="aisstream-status" class="aisstream-status">
+                    <h4><span class="live-indicator"></span>Live Data Connection</h4>
+                    <div id="aisstream-stats" class="aisstream-stats">
+                        Connecting to AISStream.io...
+                    </div>
+                </div>
+            </div>
+
+            <div class="section">
+                <h3>📊 Fleet Statistics</h3>
+                <div class="stats-grid">
+                    <div class="stat-card total">
+                        <div class="stat-number" id="total-vessels">0</div>
+                        <div class="stat-label">Total Vessels</div>
+                    </div>
+                    <div class="stat-card live">
+                        <div class="stat-number" id="live-vessels">0</div>
+                        <div class="stat-label">Live Data</div>
+                    </div>
+                    <div class="stat-card simulated">
+                        <div class="stat-number" id="simulated-vessels">0</div>
+                        <div class="stat-label">Simulated</div>
+                    </div>
+                    <div class="stat-card updates">
+                        <div class="stat-number" id="updates-per-min">0</div>
+                        <div class="stat-label">Updates/Min</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="section">
+                <h3>🎛️ Controls</h3>
+                <div class="controls">
+                    <button class="btn btn-primary" onclick="requestFleetSummary()">
+                        Refresh Fleet
+                    </button>
+                    <button class="btn btn-secondary" onclick="requestLiveStatus()">
+                        Live Status
+                    </button>
+                    <button class="btn btn-secondary" onclick="toggleAutoScroll()">
+                        Toggle Scroll
+                    </button>
+                </div>
+            </div>
+
+            <div class="section">
+                <h3>🚢 Recent Vessels</h3>
+                <div class="data-source-toggle">
+                    <button class="toggle-btn active" onclick="filterVessels('all')">All</button>
+                    <button class="toggle-btn inactive" onclick="filterVessels('live')">Live</button>
+                    <button class="toggle-btn inactive" onclick="filterVessels('simulated')">Simulated</button>
+                </div>
+                <div id="recent-vessels" class="vessel-list">
+                    <!-- Will be populated with recently updated vessels -->
+                </div>
+            </div>
+        </div>
+
+        <div class="main-content">
+            <div class="section">
+                <h3>📝 Live Update Stream</h3>
+                <div id="update-log" class="update-log">
+                    <div class="log-entry system">
+                        <span class="log-timestamp">[Starting]</span> 
+                        Initializing Live AIS Dashboard with AISStream.io integration...
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        class LiveAISDashboard {
+            constructor() {
+                this.websocket = null;
+                this.isConnected = false;
+                this.autoScroll = true;
+                this.updateCount = 0;
+                this.liveUpdateCount = 0;
+                this.startTime = Date.now();
+                this.recentVessels = new Map();
+                this.vesselFilter = 'all';
+                this.liveDataEnabled = false;
+                
+                this.initializeWebSocket();
+                this.startUpdateRateCalculation();
+            }
+
+            initializeWebSocket() {
+                const wsUrl = 'ws://localhost:8765';
+                this.addLogEntry('system', `Connecting to Live AIS server: ${wsUrl}...`);
+                
+                try {
+                    this.websocket = new WebSocket(wsUrl);
+                    this.setupWebSocketHandlers();
+                } catch (error) {
+                    this.addLogEntry('system', `Failed to connect: ${error.message}`, 'error');
+                    this.updateConnectionStatus('disconnected');
+                }
+            }
+
+            setupWebSocketHandlers() {
+                this.websocket.onopen = () => {
+                    this.isConnected = true;
+                    this.updateConnectionStatus('connected');
+                    this.addLogEntry('system', 'Connected to Live AIS WebSocket server');
+                    
+                    // Subscribe to all updates
+                    this.sendMessage({
+                        type: 'subscribe',
+                        subscription_type: 'all'
+                    });
+                };
+
+                this.websocket.onclose = () => {
+                    this.isConnected = false;
+                    this.updateConnectionStatus('disconnected');
+                    this.addLogEntry('system', 'Connection closed. Attempting to reconnect...', 'error');
+                    
+                    // Attempt to reconnect after 5 seconds
+                    setTimeout(() => {
+                        this.initializeWebSocket();
+                    }, 5000);
+                };
+
+                this.websocket.onerror = (error) => {
+                    this.addLogEntry('system', `WebSocket error: ${error}`, 'error');
+                };
+
+                this.websocket.onmessage = (event) => {
+                    try {
+                        const data = JSON.parse(event.data);
+                        this.handleMessage(data);
+                    } catch (error) {
+                        this.addLogEntry('system', `Failed to parse message: ${error.message}`, 'error');
+                    }
+                };
+            }
+
+            handleMessage(data) {
+                const messageType = data.type;
+
+                switch (messageType) {
+                    case 'connection_established':
+                        this.handleConnectionEstablished(data);
+                        break;
+                    
+                    case 'vessel_updates':
+                        this.handleVesselUpdates(data);
+                        break;
+                    
+                    case 'fleet_summary_update':
+                        this.handleFleetSummaryUpdate(data);
+                        break;
+                    
+                    case 'vessel_data':
+                        this.handleVesselData(data);
+                        break;
+                    
+                    case 'live_status':
+                        this.handleLiveStatus(data);
+                        break;
+                    
+                    case 'subscription_confirmed':
+                        this.addLogEntry('system', `Subscribed to: ${data.subscription_type}`);
+                        break;
+                    
+                    case 'error':
+                        this.addLogEntry('system', data.message, 'error');
+                        break;
+                    
+                    default:
+                        this.addLogEntry('system', `Unknown message type: ${messageType}`);
+                }
+            }
+
+            handleConnectionEstablished(data) {
+                this.addLogEntry('system', data.message);
+                this.liveDataEnabled = data.live_data_enabled;
+                
+                if (data.fleet_summary) {
+                    this.updateFleetStatistics(data.fleet_summary);
+                }
+
+                // Update AISStream status
+                this.updateAISStreamStatus({
+                    connected: this.liveDataEnabled,
+                    message: this.liveDataEnabled ? 'Connected to AISStream.io' : 'Live data disabled'
+                });
+            }
+
+            handleVesselUpdates(data) {
+                const updates = data.updates || [];
+                const liveCount = data.live_data_count || 0;
+                const simulatedCount = data.simulated_data_count || 0;
+                
+                this.updateCount += updates.length;
+                this.liveUpdateCount += liveCount;
+                
+                if (liveCount > 0) {
+                    this.addLogEntry('live', 
+                        `🔴 LIVE: Received ${liveCount} vessel updates from AISStream.io`);
+                }
+                
+                if (simulatedCount > 0) {
+                    this.addLogEntry('simulated',
+                        `🎭 SIMULATED: Received ${simulatedCount} vessel updates`);
+                }
+
+                // Process individual updates
+                updates.forEach(update => {
+                    const isLive = update.is_live_data || false;
+                    const vesselKey = isLive ? `live_${update.mmsi}` : update.imo_number;
+                    
+                    this.recentVessels.set(vesselKey, {
+                        ...update,
+                        lastUpdate: Date.now(),
+                        source: isLive ? 'live' : 'simulated'
+                    });
+
+                    // Log detailed vessel updates for live data
+                    if (isLive && liveCount <= 3) {
+                        const pos = update.position;
+                        const kin = update.kinematics;
+                        
+                        this.addLogEntry('live',
+                            `📍 <span class="log-vessel">${update.vessel_name}</span> ` +
+                            `<span class="log-position">(${pos.latitude.toFixed(4)}, ${pos.longitude.toFixed(4)})</span> ` +
+                            `${(kin.speed_over_ground || 0).toFixed(1)}kts ` +
+                            `<span class="log-status">${update.status}</span>` +
+                            (update.destination ? ` → ${update.destination}` : '')
+                        );
+                    }
+                });
+
+                this.updateRecentVessels();
+            }
+
+            handleFleetSummaryUpdate(data) {
+                if (data.summary) {
+                    this.updateFleetStatistics(data.summary);
+                    this.addLogEntry('system', 'Fleet summary updated');
+                }
+            }
+
+            handleVesselData(data) {
+                if (data.vessel) {
+                    const source = data.vessel.source || 'unknown';
+                    const vesselData = data.vessel.vessel_data || {};
+                    this.addLogEntry('system', 
+                        `Retrieved ${source} data for ${vesselData.vessel_name || 'Unknown vessel'}`);
+                }
+            }
+
+            handleLiveStatus(data) {
+                this.updateAISStreamStatus({
+                    connected: data.aisstream_connected,
+                    stats: data.aisstream_stats,
+                    tracker_stats: data.tracker_stats
+                });
+                
+                this.addLogEntry('system', 
+                    `Live status: AISStream.io ${data.aisstream_connected ? 'connected' : 'disconnected'}`);
+            }
+
+            updateConnectionStatus(status) {
+                const statusElement = document.getElementById('connection-status');
+                statusElement.className = `connection-status status-${status}`;
+                
+                switch (status) {
+                    case 'connected':
+                        statusElement.innerHTML = '🟢 Connected to Live AIS Server';
+                        break;
+                    case 'disconnected':
+                        statusElement.innerHTML = '🔴 Disconnected';
+                        break;
+                    case 'connecting':
+                        statusElement.innerHTML = '<span class="loading"></span> Connecting...';
+                        break;
+                }
+            }
+
+            updateFleetStatistics(summary) {
+                document.getElementById('total-vessels').textContent = 
+                    summary.total_vessels || 0;
+                document.getElementById('live-vessels').textContent = 
+                    summary.live_vessels || 0;
+                document.getElementById('simulated-vessels').textContent = 
+                    summary.simulated_vessels || 0;
+            }
+
+            updateAISStreamStatus(statusData) {
+                const statusDiv = document.getElementById('aisstream-status');
+                const statsDiv = document.getElementById('aisstream-stats');
+                
+                const indicator = statusDiv.querySelector('.live-indicator');
+                if (statusData.connected) {
+                    indicator.style.background = '#10b981';
+                    indicator.style.animation = 'pulse 2s infinite';
+                } else {
+                    indicator.style.background = '#ef4444';
+                    indicator.style.animation = 'none';
+                }
+                
+                let statsHtml = '';
+                if (statusData.connected && statusData.stats) {
+                    const stats = statusData.stats;
+                    statsHtml = `
+                        Messages received: ${stats.messages_received || 0}<br>
+                        Message rate: ${stats.message_rate_per_second || 0} msg/sec<br>
+                        Connected since: ${stats.connection_time ? new Date(stats.connection_time).toLocaleTimeString() : 'Unknown'}
+                    `;
+                } else {
+                    statsHtml = statusData.message || 'AISStream.io not connected';
+                }
+                
+                if (statusData.tracker_stats) {
+                    const tracker = statusData.tracker_stats;
+                    statsHtml += `<br><br>Vessels tracked: ${tracker.active_vessels || 0}`;
+                }
+                
+                statsDiv.innerHTML = statsHtml;
+            }
+
+            updateRecentVessels() {
+                const container = document.getElementById('recent-vessels');
+                const vessels = Array.from(this.recentVessels.values())
+                    .filter(vessel => {
+                        if (this.vesselFilter === 'all') return true;
+                        return vessel.source === this.vesselFilter;
+                    })
+                    .sort((a, b) => b.lastUpdate - a.lastUpdate)
+                    .slice(0, 15);
+
+                container.innerHTML = '';
+                vessels.forEach(vessel => {
+                    const vesselDiv = document.createElement('div');
+                    vesselDiv.className = `vessel-item ${vessel.source}`;
+                    
+                    // Add updating class if recently updated (within last 30 seconds)
+                    if (Date.now() - vessel.lastUpdate < 30000) {
+                        vesselDiv.classList.add('updating');
+                    }
+
+                    const badge = vessel.source === 'live' ? 
+                        '<span class="live-badge">LIVE</span>' : 
+                        '<span class="simulated-badge">SIM</span>';
+
+                    vesselDiv.innerHTML = `
+                        <div class="vessel-name">${vessel.vessel_name}${badge}</div>
+                        <div class="vessel-info">
+                            ${vessel.vessel_type.replace('_', ' ').toUpperCase()} • 
+                            ${(vessel.kinematics.speed_over_ground || 0).toFixed(1)}kts • 
+                            ${vessel.status.replace('_', ' ').toUpperCase()}
+                        </div>
+                        <div class="vessel-position">
+                            ${vessel.position.latitude.toFixed(4)}, ${vessel.position.longitude.toFixed(4)}
+                        </div>
+                        ${vessel.destination ? `<div class="vessel-info">→ ${vessel.destination}</div>` : ''}
+                    `;
+
+                    vesselDiv.onclick = () => {
+                        this.requestVesselData(vessel.imo_number || vessel.mmsi);
+                    };
+
+                    container.appendChild(vesselDiv);
+                });
+            }
+
+            startUpdateRateCalculation() {
+                setInterval(() => {
+                    const minutes = (Date.now() - this.startTime) / (1000 * 60);
+                    const rate = Math.round(this.updateCount / minutes);
+                    document.getElementById('updates-per-min').textContent = rate;
+                }, 5000);
+            }
+
+            addLogEntry(type, message, severity = 'info') {
+                const logContainer = document.getElementById('update-log');
+                const entry = document.createElement('div');
+                entry.className = `log-entry ${type}`;
+                
+                const timestamp = new Date().toLocaleTimeString();
+                entry.innerHTML = `
+                    <span class="log-timestamp">[${timestamp}]</span> 
+                    ${message}
+                `;
+                
+                logContainer.appendChild(entry);
+                
+                // Auto-scroll to bottom if enabled
+                if (this.autoScroll) {
+                    logContainer.scrollTop = logContainer.scrollHeight;
+                }
+                
+                // Keep only last 100 entries
+                while (logContainer.children.length > 100) {
+                    logContainer.removeChild(logContainer.firstChild);
+                }
+            }
+
+            sendMessage(message) {
+                if (this.websocket && this.isConnected) {
+                    this.websocket.send(JSON.stringify(message));
+                }
+            }
+
+            requestVesselData(identifier) {
+                this.sendMessage({
+                    type: 'get_vessel',
+                    imo_number: identifier
+                });
+            }
+
+            requestFleetSummary() {
+                this.sendMessage({
+                    type: 'get_fleet_summary'
+                });
+                this.addLogEntry('system', 'Requesting fleet summary...');
+            }
+
+            requestLiveStatus() {
+                this.sendMessage({
+                    type: 'get_live_status'
+                });
+                this.addLogEntry('system', 'Requesting live data status...');
+            }
+
+            toggleAutoScroll() {
+                this.autoScroll = !this.autoScroll;
+                this.addLogEntry('system', 
+                    `Auto-scroll ${this.autoScroll ? 'enabled' : 'disabled'}`);
+            }
+
+            filterVessels(filter) {
+                this.vesselFilter = filter;
+                
+                // Update toggle buttons
+                document.querySelectorAll('.toggle-btn').forEach(btn => {
+                    btn.className = 'toggle-btn inactive';
+                });
+                event.target.className = 'toggle-btn active';
+                
+                // Update vessel list
+                this.updateRecentVessels();
+                
+                this.addLogEntry('system', `Filtering vessels: ${filter}`);
+            }
+        }
+
+        // Global functions for button handlers
+        function requestFleetSummary() {
+            window.dashboard.requestFleetSummary();
+        }
+
+        function requestLiveStatus() {
+            window.dashboard.requestLiveStatus();
+        }
+
+        function toggleAutoScroll() {
+            window.dashboard.toggleAutoScroll();
+        }
+
+        function filterVessels(filter) {
+            window.dashboard.filterVessels(filter);
+        }
+
+        // Initialize dashboard when page loads
+        document.addEventListener('DOMContentLoaded', () => {
+            window.dashboard = new LiveAISDashboard();
+        });
+    </script>
+</body>
+</html>
