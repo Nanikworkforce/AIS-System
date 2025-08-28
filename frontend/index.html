@@ -13,7 +13,7 @@
 
         body {
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            background: linear-gradient(135deg, #071225 0%, #152231 100%);
             min-height: 100vh;
             display: flex;
             align-items: center;
@@ -23,18 +23,19 @@
 
         .container {
             text-align: center;
-            background: rgba(255, 255, 255, 0.1);
+            background: rgba(21, 34, 49, 0.8);
             backdrop-filter: blur(10px);
             padding: 3rem;
             border-radius: 20px;
-            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+            border: 1px solid rgba(29, 211, 176, 0.3);
             max-width: 600px;
         }
 
         h1 {
             font-size: 3rem;
             margin-bottom: 1rem;
-            background: linear-gradient(45deg, #ffffff, #e0e7ff);
+            background: linear-gradient(45deg, #1DD3B0, #ffffff);
             -webkit-background-clip: text;
             -webkit-text-fill-color: transparent;
             background-clip: text;
@@ -54,25 +55,27 @@
         }
 
         .nav-card {
-            background: rgba(255, 255, 255, 0.15);
+            background: rgba(21, 34, 49, 0.7);
             padding: 2rem 1.5rem;
             border-radius: 15px;
             text-decoration: none;
             color: white;
             transition: all 0.3s ease;
-            border: 1px solid rgba(255, 255, 255, 0.2);
+            border: 1px solid rgba(29, 211, 176, 0.3);
             backdrop-filter: blur(5px);
         }
 
         .nav-card:hover {
             transform: translateY(-5px);
-            background: rgba(255, 255, 255, 0.25);
-            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+            background: rgba(29, 211, 176, 0.2);
+            border: 1px solid rgba(29, 211, 176, 0.5);
+            box-shadow: 0 10px 30px rgba(29, 211, 176, 0.2);
         }
 
         .nav-card h3 {
             font-size: 1.5rem;
             margin-bottom: 0.5rem;
+            color: #1DD3B0;
         }
 
         .nav-card p {
@@ -96,6 +99,7 @@
             text-align: center;
             margin-bottom: 1.5rem;
             font-size: 1.5rem;
+            color: #1DD3B0;
         }
 
         .feature-list {
@@ -111,8 +115,9 @@
         }
 
         .feature-list li::before {
-            content: "✅ ";
+            content: "🚢 ";
             margin-right: 0.5rem;
+            color: #1DD3B0;
         }
 
         @media (max-width: 768px) {
@@ -134,7 +139,7 @@
 </head>
 <body>
     <div class="container">
-        <h1>🚢 AI System</h1>
+        <h1>🚢 AIS System</h1>
         <p class="subtitle">Advanced Marine Vessel Tracking & Analytics Platform</p>
         
         <div class="nav-grid">
