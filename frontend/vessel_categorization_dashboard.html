@@ -1609,6 +1609,15 @@
                 }
             }
 
+            requestFleetSummary() {
+                if (this.socket && this.socket.connected) {
+                    console.log('Requesting fleet summary via SocketIO...');
+                    this.socket.emit('get_fleet_summary');
+                } else {
+                    this.sendMessage({ type: 'get_fleet_summary' });
+                }
+            }
+
             requestVesselsByType(vesselType) {
                 if (this.socket && this.socket.connected) {
                     console.log(`Requesting vessels by type ${vesselType} via SocketIO...`);
@@ -1658,7 +1667,9 @@
             }
 
             refreshFleetData() {
+                console.log('🔄 Refreshing fleet data...');
                 this.requestFleetStatistics();
+                this.requestFleetSummary();
                 this.loadAllCategories();
             }
         }
@@ -1709,16 +1720,19 @@
         }
         
         function refreshFleetData() {
-            if (window.dashboard && window.dashboard.websocket && window.dashboard.isConnected) {
-                console.log('Refreshing fleet data...');
-                window.dashboard.requestFleetSummary();
-                
-                // Request fresh vessel updates
-                window.dashboard.websocket.send(JSON.stringify({
-                    type: 'get_live_status'
-                }));
+            if (window.dashboard) {
+                // Check for both SocketIO (production) and WebSocket (development) connections
+                if ((window.dashboard.socket && window.dashboard.socket.connected) || 
+                    (window.dashboard.websocket && window.dashboard.isConnected)) {
+                    
+                    console.log('Refreshing fleet data...');
+                    window.dashboard.refreshFleetData();
+                    
+                } else {
+                    alert('Not connected to server. Please wait for connection.');
+                }
             } else {
-                alert('Not connected to server. Please wait for connection.');
+                alert('Dashboard not initialized. Please refresh the page.');
             }
         }
 
