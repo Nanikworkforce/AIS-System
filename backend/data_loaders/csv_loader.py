@@ -98,6 +98,55 @@ class AISCSVLoader:
             logger.error(f"Error loading CSV with pandas: {e}")
             raise
     
+    def load_data_by_date_range(self, start_date: str, end_date: str, max_records: int = 1000) -> List[Dict[str, Any]]:
+        """
+        Load AIS data filtered by date range
+        
+        Args:
+            start_date: Start date in format 'YYYY-MM-DD' or 'YYYY-MM-DDTHH:MM'
+            end_date: End date in format 'YYYY-MM-DD' or 'YYYY-MM-DDTHH:MM'
+            max_records: Maximum number of records to return
+            
+        Returns:
+            List of vessel data dictionaries within the date range
+        """
+        logger.info(f"Loading data from {start_date} to {end_date}")
+        
+        try:
+            # Parse date strings
+            start_dt = self._parse_datetime(start_date)
+            end_dt = self._parse_datetime(end_date)
+            
+            if not start_dt or not end_dt:
+                logger.error("Invalid date format")
+                return []
+            
+            vessels = []
+            with open(self.csv_file_path, 'r', encoding='utf-8') as file:
+                reader = csv.DictReader(file)
+                
+                for i, row in enumerate(reader):
+                    if i >= max_records:
+                        break
+                    
+                    # Parse the timestamp from the record
+                    record_time = self._parse_datetime(row.get('BaseDateTime', ''))
+                    if not record_time:
+                        continue
+                    
+                    # Check if record is within date range
+                    if start_dt <= record_time <= end_dt:
+                        vessel_data = self._parse_vessel_record(row)
+                        if vessel_data:
+                            vessels.append(vessel_data)
+            
+            logger.info(f"Found {len(vessels)} vessels in date range {start_date} to {end_date}")
+            return vessels
+            
+        except Exception as e:
+            logger.error(f"Error loading data by date range: {e}")
+            return []
+    
     def stream_data(self, chunk_size: int = 1000) -> Generator[List[Dict[str, Any]], None, None]:
         """
         Stream AIS data in chunks to handle large files

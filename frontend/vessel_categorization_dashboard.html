@@ -1542,6 +1542,22 @@
                 
                 console.log(`📦 Total vessels to categorize: ${allVessels.length}`);
                 
+                // Show data source if available
+                if (data.data_source) {
+                    console.log(`📊 Data source: ${data.data_source}`);
+                    const resultsContainer = document.getElementById('query-results');
+                    if (resultsContainer) {
+                        resultsContainer.innerHTML = `
+                            <div class="alert alert-info">
+                                📊 Historical Data Loaded
+                                <br><strong>Data Source:</strong> ${data.data_source === 'csv' ? 'Real AIS CSV Data' : 'Simulated Data'}
+                                <br><strong>Date Range:</strong> ${new Date(data.date_range.start).toLocaleDateString()} to ${new Date(data.date_range.end).toLocaleDateString()}
+                                <br><strong>Total Vessels:</strong> ${allVessels.length} vessels
+                            </div>
+                        `;
+                    }
+                }
+                
                 // Group vessels by type (same logic as processVesselUpdates)
                 const vesselsByType = {
                     tanker: [],
@@ -1607,11 +1623,11 @@
                 
                 resultsContainer.innerHTML = `
                     <div class="alert alert-success">
-                        📊 Historical Data Simulation Results
+                        📊 Historical Data Results
                         <br><strong>Date Range:</strong> ${new Date(requestData.start_date).toLocaleDateString()} to ${new Date(requestData.end_date).toLocaleDateString()}
                         <br><strong>Vessels Active:</strong> ${historicalCount} vessels
                         <br><strong>Current Fleet:</strong> ${currentVessels.length} vessels
-                        <br><em>Note: This is simulated data based on current fleet composition.</em>
+                        <br><em>Note: Data source will be shown in the response.</em>
                     </div>
                 `;
             }

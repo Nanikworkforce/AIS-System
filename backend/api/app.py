@@ -17,6 +17,7 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from models.vessel import Vessel, VesselFleet, VesselType, VesselStatus, ServiceLine
 from generators.ais_data_generator import AISDataGenerator, generate_sample_fleet
+from data_loaders.csv_loader import AISCSVLoader
 from analytics.vessel_analytics import VesselAnalytics, create_analytics_dashboard_data
 from analytics.comprehensive_reports import ComprehensiveVesselReports
 
@@ -55,6 +56,15 @@ class AISFlaskApp:
         self.analytics = VesselAnalytics(self.fleet)
         self.comprehensive_reports = ComprehensiveVesselReports(self.fleet)
         print("Fleet generated successfully!")
+        
+        # Initialize CSV loader for historical data
+        try:
+            csv_path = os.path.join(os.path.dirname(__file__), '..', 'files', 'AIS_2023_01_01.csv')
+            self.csv_loader = AISCSVLoader(csv_path)
+            print(f"✅ CSV loader initialized: {csv_path}")
+        except Exception as e:
+            print(f"⚠️ CSV loader not available: {e}")
+            self.csv_loader = None
         
         # Setup routes and WebSocket handlers
         self._setup_routes()
@@ -596,13 +606,40 @@ class AISFlaskApp:
         
         @self.socketio.on('get_historical_data')
         def handle_get_historical_data(data):
-            """Handle historical data requests"""
+            """Handle historical data requests using real CSV data"""
             try:
                 start_date = data.get('start_date')
                 end_date = data.get('end_date')
                 
-                # For this demo, return current fleet data as "historical"
-                vessels = [v.to_dict() for v in self.fleet.vessels[:200]]  # Limit to 200 vessels
+                print(f"📅 Historical data request: {start_date} to {end_date}")
+                
+                if self.csv_loader:
+                    # Use real CSV data
+                    csv_vessels = self.csv_loader.load_data_by_date_range(start_date, end_date, max_records=500)
+                    print(f"📊 Found {len(csv_vessels)} vessels in CSV for date range")
+                    
+                    # Convert CSV data to vessel format
+                    vessels = []
+                    for csv_vessel in csv_vessels:
+                        # Map CSV data to vessel format
+                        vessel_dict = {
+                            'vessel_name': csv_vessel.get('vessel_name', 'Unknown Vessel'),
+                            'imo_number': csv_vessel.get('imo_number', f"IMO{csv_vessel.get('mmsi', '0000000')}"),
+                            'mmsi': csv_vessel.get('mmsi', '000000000'),
+                            'vessel_type': self._map_csv_vessel_type(csv_vessel.get('vessel_type', 0)),
+                            'current_status': self._map_csv_status(csv_vessel.get('status', 0)),
+                            'position': {
+                                'latitude': csv_vessel.get('latitude', 0),
+                                'longitude': csv_vessel.get('longitude', 0)
+                            },
+                            'age_years': 15.0,  # Default age for CSV vessels
+                            'timestamp': csv_vessel.get('timestamp', start_date)
+                        }
+                        vessels.append(vessel_dict)
+                else:
+                    # Fallback to simulated data
+                    print("⚠️ Using simulated data (CSV not available)")
+                    vessels = [v.to_dict() for v in self.fleet.vessels[:200]]
                 
                 historical_data = {
                     'type': 'historical_data',
@@ -614,12 +651,74 @@ class AISFlaskApp:
                         'end': end_date
                     },
                     'total_count': len(vessels),
-                    'available_dates': [start_date]
+                    'available_dates': [start_date],
+                    'data_source': 'csv' if self.csv_loader else 'simulated'
                 }
                 
+                print(f"📈 Sending {len(vessels)} historical vessels")
                 emit('historical_data', historical_data)
+                
             except Exception as e:
+                print(f"❌ Error in historical data: {e}")
                 emit('error', {'message': str(e)})
+    
+    def _map_csv_vessel_type(self, ais_type: int) -> str:
+        """Map AIS vessel type codes to our vessel types"""
+        type_mapping = {
+            70: 'general_cargo',  # Cargo
+            71: 'general_cargo',  # Cargo
+            72: 'general_cargo',  # Cargo
+            73: 'general_cargo',  # Cargo
+            74: 'general_cargo',  # Cargo
+            75: 'general_cargo',  # Cargo
+            76: 'general_cargo',  # Cargo
+            77: 'general_cargo',  # Cargo
+            78: 'general_cargo',  # Cargo
+            79: 'general_cargo',  # Cargo
+            80: 'tanker',         # Tanker
+            81: 'tanker',         # Tanker
+            82: 'tanker',         # Tanker
+            83: 'tanker',         # Tanker
+            84: 'tanker',         # Tanker
+            85: 'tanker',         # Tanker
+            86: 'tanker',         # Tanker
+            87: 'tanker',         # Tanker
+            88: 'tanker',         # Tanker
+            89: 'tanker',         # Tanker
+            90: 'container',      # Container
+            91: 'container',      # Container
+            92: 'container',      # Container
+            93: 'container',      # Container
+            94: 'container',      # Container
+            95: 'container',      # Container
+            96: 'container',      # Container
+            97: 'container',      # Container
+            98: 'container',      # Container
+            99: 'container',      # Container
+        }
+        return type_mapping.get(ais_type, 'general_cargo')
+    
+    def _map_csv_status(self, ais_status: int) -> str:
+        """Map AIS status codes to our status values"""
+        status_mapping = {
+            0: 'at_sea',      # Under way using engine
+            1: 'at_sea',      # At anchor
+            2: 'in_port',     # Not under command
+            3: 'in_port',     # Restricted manoeuvrability
+            4: 'in_port',     # Constrained by her draught
+            5: 'in_port',     # Moored
+            6: 'in_port',     # Aground
+            7: 'in_port',     # Engaged in fishing
+            8: 'at_sea',      # Under way sailing
+            9: 'dry_dock',    # Reserved for future amendment
+            10: 'dry_dock',   # Reserved for future amendment
+            11: 'dry_dock',   # Reserved for future amendment
+            12: 'dry_dock',   # Reserved for future amendment
+            13: 'dry_dock',   # Reserved for future amendment
+            14: 'dry_dock',   # Reserved for future amendment
+            15: 'dry_dock',   # Reserved for future amendment
+        }
+        return status_mapping.get(ais_status, 'at_sea')
         
         @self.socketio.on('get_vessel_details')
         def handle_get_vessel_details(data):
