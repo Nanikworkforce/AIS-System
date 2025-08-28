@@ -557,6 +557,78 @@ class AISFlaskApp:
                     emit('error', {'message': f'Vessel {imo_number} not found'})
             except Exception as e:
                 emit('error', {'message': str(e)})
+        
+        @self.socketio.on('get_fleet_statistics')
+        def handle_get_fleet_statistics():
+            """Handle fleet statistics requests"""
+            try:
+                stats = self.fleet.get_vessel_statistics()
+                emit('fleet_statistics', {
+                    'statistics': stats,
+                    'timestamp': datetime.now().isoformat()
+                })
+            except Exception as e:
+                emit('error', {'message': str(e)})
+        
+        @self.socketio.on('get_vessels_by_type')
+        def handle_get_vessels_by_type(data):
+            """Handle vessels by type requests"""
+            try:
+                vessel_type = data.get('vessel_type')
+                vessels = [v for v in self.fleet.vessels if v.vessel_type.value == vessel_type]
+                vessel_data = [v.to_dict() for v in vessels]
+                emit('vessels_by_type', {
+                    'vessel_type': vessel_type,
+                    'data': vessel_data,
+                    'count': len(vessel_data),
+                    'timestamp': datetime.now().isoformat()
+                })
+            except Exception as e:
+                emit('error', {'message': str(e)})
+        
+        @self.socketio.on('get_historical_data')
+        def handle_get_historical_data(data):
+            """Handle historical data requests"""
+            try:
+                start_date = data.get('start_date')
+                end_date = data.get('end_date')
+                
+                # For this demo, return current fleet data as "historical"
+                vessels = [v.to_dict() for v in self.fleet.vessels[:200]]  # Limit to 200 vessels
+                
+                historical_data = {
+                    'type': 'historical_data',
+                    'data': {
+                        start_date: {'vessels': vessels}
+                    },
+                    'date_range': {
+                        'start': start_date,
+                        'end': end_date
+                    },
+                    'total_count': len(vessels),
+                    'available_dates': [start_date]
+                }
+                
+                emit('historical_data', historical_data)
+            except Exception as e:
+                emit('error', {'message': str(e)})
+        
+        @self.socketio.on('get_vessel_details')
+        def handle_get_vessel_details(data):
+            """Handle vessel details requests"""
+            try:
+                imo_number = data.get('imo_number')
+                vessel = next((v for v in self.fleet.vessels if v.imo_number == imo_number), None)
+                
+                if vessel:
+                    emit('vessel_details', {
+                        'vessel': vessel.to_dict(),
+                        'timestamp': datetime.now().isoformat()
+                    })
+                else:
+                    emit('error', {'message': f'Vessel {imo_number} not found'})
+            except Exception as e:
+                emit('error', {'message': str(e)})
     
     def run(self, host='0.0.0.0', port=5000, debug=True):
         """Run the Flask application"""

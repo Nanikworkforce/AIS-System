@@ -653,19 +653,92 @@
             }
 
             initializeWebSocket() {
-                // Determine WebSocket URL based on environment
+                // Determine connection method based on environment
                 const isProduction = window.location.hostname !== 'localhost';
-                const wsUrl = isProduction 
-                    ? 'wss://ais-system.onrender.com/ws' // WebSocket endpoint
-                    : 'ws://localhost:8765';
+                
+                if (isProduction) {
+                    // Use SocketIO for production (Render deployment)
+                    this.initializeSocketIO();
+                } else {
+                    // Use WebSocket for local development
+                    const wsUrl = 'ws://localhost:8765';
+                    this.updateConnectionStatus('connecting');
+                    
+                    try {
+                        this.websocket = new WebSocket(wsUrl);
+                        this.setupWebSocketHandlers();
+                    } catch (error) {
+                        console.error('Failed to connect:', error);
+                        this.updateConnectionStatus('disconnected');
+                    }
+                }
+            }
+
+            initializeSocketIO() {
+                // Initialize SocketIO connection for production
                 this.updateConnectionStatus('connecting');
                 
                 try {
-                    this.websocket = new WebSocket(wsUrl);
-                    this.setupWebSocketHandlers();
+                    // Load SocketIO library if not already loaded
+                    if (typeof io === 'undefined') {
+                        const script = document.createElement('script');
+                        script.src = 'https://cdn.socket.io/4.7.5/socket.io.min.js';
+                        script.onload = () => this.connectSocketIO();
+                        document.head.appendChild(script);
+                    } else {
+                        this.connectSocketIO();
+                    }
                 } catch (error) {
-                    console.error('Failed to connect:', error);
+                    console.error('Failed to initialize SocketIO:', error);
                     this.updateConnectionStatus('disconnected');
+                }
+            }
+
+            connectSocketIO() {
+                try {
+                    this.socket = io({
+                        transports: ['websocket', 'polling'],
+                        upgrade: true,
+                        rememberUpgrade: true
+                    });
+                    
+                    this.socket.on('connect', () => {
+                        this.isConnected = true;
+                        this.updateConnectionStatus('connected');
+                        this.requestFleetStatistics();
+                        this.loadAllCategories();
+                    });
+                    
+                    this.socket.on('disconnect', () => {
+                        this.isConnected = false;
+                        this.updateConnectionStatus('disconnected');
+                    });
+                    
+                    this.socket.on('error', (error) => {
+                        console.error('SocketIO error:', error);
+                        this.updateConnectionStatus('error');
+                    });
+                    
+                    // Handle various message types
+                    this.socket.on('fleet_summary', (data) => {
+                        this.handleMessage({type: 'fleet_summary', ...data});
+                    });
+                    
+                    this.socket.on('vessels_by_type', (data) => {
+                        this.handleMessage({type: 'vessels_by_type', ...data});
+                    });
+                    
+                    this.socket.on('historical_data', (data) => {
+                        this.handleMessage({type: 'historical_data', ...data});
+                    });
+                    
+                    this.socket.on('fleet_statistics', (data) => {
+                        this.handleMessage({type: 'fleet_statistics', ...data});
+                    });
+                    
+                } catch (error) {
+                    console.error('SocketIO connection failed:', error);
+                    this.updateConnectionStatus('error');
                 }
             }
 
@@ -761,8 +834,13 @@
             }
 
             requestFleetSummary() {
-                if (this.websocket && this.websocket.readyState === WebSocket.OPEN) {
-                    console.log('Requesting fleet summary...');
+                if (this.socket && this.socket.connected) {
+                    // SocketIO for production
+                    console.log('Requesting fleet summary via SocketIO...');
+                    this.socket.emit('get_fleet_summary');
+                } else if (this.websocket && this.websocket.readyState === WebSocket.OPEN) {
+                    // WebSocket for local development
+                    console.log('Requesting fleet summary via WebSocket...');
                     this.websocket.send(JSON.stringify({
                         type: 'get_fleet_summary'
                     }));
@@ -1396,27 +1474,46 @@
             }
 
             sendMessage(message) {
-                if (this.websocket && this.isConnected) {
+                if (this.socket && this.socket.connected) {
+                    // SocketIO for production
+                    this.socket.emit(message.type, message);
+                } else if (this.websocket && this.isConnected) {
+                    // WebSocket for local development
                     this.websocket.send(JSON.stringify(message));
                 }
             }
 
             requestFleetStatistics() {
-                this.sendMessage({ type: 'get_fleet_statistics' });
+                if (this.socket && this.socket.connected) {
+                    console.log('Requesting fleet statistics via SocketIO...');
+                    this.socket.emit('get_fleet_statistics');
+                } else {
+                    this.sendMessage({ type: 'get_fleet_statistics' });
+                }
             }
 
             requestVesselsByType(vesselType) {
-                this.sendMessage({ 
-                    type: 'get_vessels_by_type', 
-                    vessel_type: vesselType 
-                });
+                if (this.socket && this.socket.connected) {
+                    console.log(`Requesting vessels by type ${vesselType} via SocketIO...`);
+                    this.socket.emit('get_vessels_by_type', { vessel_type: vesselType });
+                } else {
+                    this.sendMessage({ 
+                        type: 'get_vessels_by_type', 
+                        vessel_type: vesselType 
+                    });
+                }
             }
 
             requestVesselDetails(imoNumber) {
-                this.sendMessage({ 
-                    type: 'get_vessel_details', 
-                    imo_number: imoNumber 
-                });
+                if (this.socket && this.socket.connected) {
+                    console.log(`Requesting vessel details for ${imoNumber} via SocketIO...`);
+                    this.socket.emit('get_vessel_details', { imo_number: imoNumber });
+                } else {
+                    this.sendMessage({ 
+                        type: 'get_vessel_details', 
+                        imo_number: imoNumber 
+                    });
+                }
             }
 
             queryByDateRange() {
@@ -1428,11 +1525,19 @@
                     return;
                 }
                 
-                this.sendMessage({
-                    type: 'query_by_date',
-                    start_date: startDate,
-                    end_date: endDate
-                });
+                if (this.socket && this.socket.connected) {
+                    console.log('Querying historical data via SocketIO:', startDate, 'to', endDate);
+                    this.socket.emit('get_historical_data', {
+                        start_date: startDate,
+                        end_date: endDate
+                    });
+                } else {
+                    this.sendMessage({
+                        type: 'get_historical_data',
+                        start_date: startDate,
+                        end_date: endDate
+                    });
+                }
             }
 
             refreshFleetData() {
@@ -1456,13 +1561,22 @@
             
             console.log('Querying historical data:', startDate, 'to', endDate);
             
-            // Send historical data request to WebSocket server
-            if (window.dashboard && window.dashboard.websocket && window.dashboard.isConnected) {
-                window.dashboard.websocket.send(JSON.stringify({
-                    type: 'get_historical_data',
-                    start_date: startDate,
-                    end_date: endDate
-                }));
+            // Send historical data request 
+            if (window.dashboard) {
+                if (window.dashboard.socket && window.dashboard.socket.connected) {
+                    // SocketIO for production
+                    window.dashboard.socket.emit('get_historical_data', {
+                        start_date: startDate,
+                        end_date: endDate
+                    });
+                } else if (window.dashboard.websocket && window.dashboard.isConnected) {
+                    // WebSocket for development
+                    window.dashboard.websocket.send(JSON.stringify({
+                        type: 'get_historical_data',
+                        start_date: startDate,
+                        end_date: endDate
+                    }));
+                }
                 
                 // Show loading message
                 const resultsContainer = document.getElementById('query-results');
