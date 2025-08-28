@@ -1,1 +1,1 @@
-web: cd backend && gunicorn --worker-class eventlet -w 1 --bind 0.0.0.0:$PORT api.wsgi:application
+web: cd backend && gunicorn --worker-class gthread --workers 1 --threads 4 --bind 0.0.0.0:$PORT api.wsgi:application

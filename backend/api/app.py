@@ -34,9 +34,11 @@ class AISFlaskApp:
         self.socketio = SocketIO(
             self.app, 
             cors_allowed_origins="*",
-            async_mode='threading',  # Use threading instead of eventlet for better compatibility
+            async_mode='threading',  # Use threading for maximum compatibility
             logger=False,
-            engineio_logger=False
+            engineio_logger=False,
+            ping_timeout=60,
+            ping_interval=25
         )
         
         # Generate or load vessel fleet

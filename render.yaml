@@ -6,8 +6,8 @@ services:
     rootDir: backend
     runtime: python
     runtimeVersion: "3.11.7"
-    buildCommand: python --version && pip install --upgrade pip setuptools wheel && pip install -r requirements.txt --prefer-binary
-    startCommand: python start_server.py
+    buildCommand: python --version && pip install --upgrade pip setuptools wheel && (pip install -r requirements.txt --prefer-binary || pip install -r requirements_simple.txt)
+    startCommand: python smart_deploy.py
     autoDeploy: true
     envVars:
       - key: PYTHON_VERSION
