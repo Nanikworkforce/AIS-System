@@ -1102,6 +1102,10 @@
             }
 
             updateCategoryData(vesselType, vessels) {
+                console.log(`📦 Updating category ${vesselType} with ${vessels.length} vessels`);
+                if (vessels.length > 0) {
+                    console.log(`🔍 Sample vessel data:`, vessels[0]);
+                }
                 this.categoryData[vesselType] = vessels;
                 this.renderCategories();
             }
@@ -1115,12 +1119,30 @@
                     const vessels = this.categoryData[category] || [];
                     console.log(`Category ${category}: ${vessels.length} vessels`);
                     
-                    // Create default stats if none exist
-                    const categoryStats = this.fleetData.vessel_types?.[category] || {
-                        at_sea: vessels.filter(v => v.navigation?.status === 'at_sea').length,
-                        in_port: vessels.filter(v => v.navigation?.status === 'in_port').length,
-                        average_age: vessels.length > 0 ? vessels.reduce((sum, v) => sum + (v.details?.age_years || 0), 0) / vessels.length : 0
+                    // Calculate actual vessel status counts for this category
+                    const atSea = vessels.filter(v => 
+                        v.current_status === 'at_sea'
+                    ).length;
+                    
+                    const inPort = vessels.filter(v => 
+                        v.current_status === 'in_port'
+                    ).length;
+                    
+                    const dryDock = vessels.filter(v => 
+                        v.current_status === 'dry_dock'
+                    ).length;
+                    
+                    const averageAge = vessels.length > 0 ? 
+                        Math.round(vessels.reduce((sum, v) => sum + (v.age_years || 0), 0) / vessels.length) : 0;
+                    
+                    const categoryStats = {
+                        at_sea: atSea,
+                        in_port: inPort,
+                        dry_dock: dryDock,
+                        average_age: averageAge
                     };
+                    
+                    console.log(`📊 ${category} stats:`, categoryStats);
                     
                     const categoryCard = this.createCategoryCard(category, vessels, categoryStats);
                     container.appendChild(categoryCard);
@@ -1159,6 +1181,10 @@
                             <div class="category-stat">
                                 <div class="category-stat-number">${stats.in_port || 0}</div>
                                 <div class="category-stat-label">In Port</div>
+                            </div>
+                            <div class="category-stat">
+                                <div class="category-stat-number">${stats.dry_dock || 0}</div>
+                                <div class="category-stat-label">Dry Dock</div>
                             </div>
                             <div class="category-stat">
                                 <div class="category-stat-number">${Math.round(stats.average_age || 0)}</div>
