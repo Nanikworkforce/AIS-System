@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Real-Time AIS Dashboard</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.7.2/socket.io.js"></script>
     <style>
         * {
             margin: 0;
@@ -367,58 +368,64 @@
             }
 
             initializeWebSocket() {
-                // Determine WebSocket URL based on environment
+                // Determine server URL based on environment
                 const isProduction = window.location.hostname !== 'localhost';
-                const wsUrl = isProduction 
-                    ? 'wss://https://ais-system.onrender.com' // Replace with your actual backend domain
-                    : 'ws://localhost:8765';
-                this.addLogEntry('system', `Connecting to ${wsUrl}...`);
+                const serverUrl = isProduction 
+                    ? 'https://ais-system.onrender.com'
+                    : 'http://localhost:5000';
+                this.addLogEntry('system', `Connecting to ${serverUrl}...`);
                 
                 try {
-                    this.websocket = new WebSocket(wsUrl);
-                    this.setupWebSocketHandlers();
+                    this.socket = io(serverUrl);
+                    this.setupSocketIOHandlers();
                 } catch (error) {
                     this.addLogEntry('error', `Failed to connect: ${error.message}`);
                     this.updateConnectionStatus('disconnected');
                 }
             }
 
-            setupWebSocketHandlers() {
-                this.websocket.onopen = () => {
+            setupSocketIOHandlers() {
+                this.socket.on('connect', () => {
                     this.isConnected = true;
                     this.updateConnectionStatus('connected');
                     this.addLogEntry('system', 'Connected to real-time AIS stream');
                     
-                    // Subscribe to all updates
-                    this.sendMessage({
-                        type: 'subscribe',
-                        subscription_type: 'all'
-                    });
-                };
+                    // Request initial fleet summary
+                    this.socket.emit('get_fleet_summary');
+                });
 
-                this.websocket.onclose = () => {
+                this.socket.on('disconnect', () => {
                     this.isConnected = false;
                     this.updateConnectionStatus('disconnected');
-                    this.addLogEntry('error', 'Connection closed. Attempting to reconnect...');
-                    
-                    // Attempt to reconnect after 5 seconds
-                    setTimeout(() => {
-                        this.initializeWebSocket();
-                    }, 5000);
-                };
+                    this.addLogEntry('system', 'Disconnected from AIS stream');
+                });
 
-                this.websocket.onerror = (error) => {
-                    this.addLogEntry('error', `WebSocket error: ${error}`);
-                };
+                this.socket.on('connect_error', (error) => {
+                    this.addLogEntry('error', `Connection error: ${error.message || 'Connection failed'}`);
+                    this.updateConnectionStatus('error');
+                });
 
-                this.websocket.onmessage = (event) => {
-                    try {
-                        const data = JSON.parse(event.data);
-                        this.handleMessage(data);
-                    } catch (error) {
-                        this.addLogEntry('error', `Failed to parse message: ${error.message}`);
-                    }
-                };
+                this.socket.on('fleet_summary', (data) => {
+                    this.handleFleetSummary(data);
+                });
+
+                this.socket.on('vessel_data', (data) => {
+                    this.handleVesselData(data);
+                });
+
+                this.socket.on('error', (data) => {
+                    this.addLogEntry('error', `Server error: ${data.message}`);
+                });
+            }
+
+            handleFleetSummary(data) {
+                this.addLogEntry('info', `Fleet Summary: ${JSON.stringify(data.summary)}`);
+                this.updateCount++;
+            }
+
+            handleVesselData(data) {
+                this.addLogEntry('vessel', `Vessel Update: ${data.vessel.vessel_name} (${data.vessel.imo_number})`);
+                this.updateCount++;
             }
 
             handleMessage(data) {

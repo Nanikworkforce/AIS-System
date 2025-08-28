@@ -634,8 +634,8 @@
                 // Determine WebSocket URL based on environment
                 const isProduction = window.location.hostname !== 'localhost';
                 const wsUrl = isProduction 
-                    ? 'wss://https://ais-system.onrender.com' // Replace with your actual backend domain
-                    : 'ws://localhost:8766'; // Enhanced server URL
+                    ? 'wss://ais-system.onrender.com/ws' // WebSocket endpoint
+                    : 'ws://localhost:8766';
                 this.updateConnectionStatus('connecting');
                 
                 try {

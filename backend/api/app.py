@@ -5,6 +5,7 @@ Provides REST endpoints for vessel data retrieval and management
 
 from flask import Flask, jsonify, request, render_template
 from flask_cors import CORS
+from flask_socketio import SocketIO, emit
 from datetime import datetime, timedelta
 import json
 import os
@@ -26,7 +27,11 @@ class AISFlaskApp:
     def __init__(self, fleet_size: int = 1000):
         """Initialize Flask app with vessel fleet"""
         self.app = Flask(__name__)
+        self.app.config['SECRET_KEY'] = 'your-secret-key-here'
         CORS(self.app)  # Enable CORS for frontend access
+        
+        # Initialize SocketIO for WebSocket support
+        self.socketio = SocketIO(self.app, cors_allowed_origins="*")
         
         # Generate or load vessel fleet
         print(f"Generating fleet with {fleet_size} vessels...")
@@ -35,8 +40,9 @@ class AISFlaskApp:
         self.comprehensive_reports = ComprehensiveVesselReports(self.fleet)
         print("Fleet generated successfully!")
         
-        # Setup routes
+        # Setup routes and WebSocket handlers
         self._setup_routes()
+        self._setup_websocket_handlers()
     
     def _setup_routes(self):
         """Setup all API routes"""
@@ -494,6 +500,56 @@ class AISFlaskApp:
             """Handle 500 errors"""
             return jsonify({'error': 'Internal server error'}), 500
     
+    def _setup_websocket_handlers(self):
+        """Setup WebSocket event handlers"""
+        
+        @self.socketio.on('connect')
+        def handle_connect():
+            """Handle client connection"""
+            print(f"WebSocket client connected: {request.sid}")
+            
+            # Send initial fleet summary
+            fleet_summary = self.fleet.get_vessel_statistics()
+            emit('fleet_summary', {
+                'summary': fleet_summary,
+                'timestamp': datetime.now().isoformat(),
+                'message': 'Connected to AIS WebSocket stream'
+            })
+        
+        @self.socketio.on('disconnect')
+        def handle_disconnect():
+            """Handle client disconnection"""
+            print(f"WebSocket client disconnected: {request.sid}")
+        
+        @self.socketio.on('get_fleet_summary')
+        def handle_get_fleet_summary():
+            """Handle fleet summary requests"""
+            try:
+                summary = self.fleet.get_vessel_statistics()
+                emit('fleet_summary', {
+                    'summary': summary,
+                    'timestamp': datetime.now().isoformat()
+                })
+            except Exception as e:
+                emit('error', {'message': str(e)})
+        
+        @self.socketio.on('get_vessel_data')
+        def handle_get_vessel_data(data):
+            """Handle specific vessel data requests"""
+            try:
+                imo_number = data.get('imo_number')
+                vessel = next((v for v in self.fleet.vessels if v.imo_number == imo_number), None)
+                
+                if vessel:
+                    emit('vessel_data', {
+                        'vessel': vessel.to_dict(),
+                        'timestamp': datetime.now().isoformat()
+                    })
+                else:
+                    emit('error', {'message': f'Vessel {imo_number} not found'})
+            except Exception as e:
+                emit('error', {'message': str(e)})
+    
     def run(self, host='0.0.0.0', port=5000, debug=True):
         """Run the Flask application"""
         print(f"Starting AIS Flask API server...")
@@ -504,10 +560,10 @@ class AISFlaskApp:
         self.app.run(host=host, port=port, debug=debug)
 
 
-def create_app(fleet_size: int = 500) -> Flask:
-    """Factory function to create Flask app"""
+def create_app(fleet_size: int = 500):
+    """Factory function to create Flask app with SocketIO"""
     ais_app = AISFlaskApp(fleet_size=fleet_size)
-    return ais_app.app
+    return ais_app.app, ais_app.socketio
 
 
 if __name__ == '__main__':
