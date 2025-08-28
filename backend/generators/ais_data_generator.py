@@ -1,11 +1,13 @@
 """
 AIS Data Generator for Marine Vessels
 Generates realistic vessel data with dry dock history, locations, and specifications
+Now integrated with CSV data loading capabilities
 """
 
 import random
+import os
 from datetime import datetime, timedelta
-from typing import List, Tuple
+from typing import List, Tuple, Optional
 from faker import Faker
 from geopy.geocoders import Nominatim
 import numpy as np
@@ -14,6 +16,7 @@ from models.vessel import (
     Vessel, VesselType, VesselStatus, ServiceLine, Location, 
     DryDockRecord, VesselSpecifications, VesselFleet
 )
+from data_loaders.csv_loader import AISCSVLoader
 
 
 class AISDataGenerator:
@@ -392,6 +395,213 @@ class AISDataGenerator:
         print(f"Distribution: {fleet.get_vessel_statistics()['vessel_types']}")
         
         return fleet
+    
+    def generate_fleet_from_csv(self, csv_file_path: str, vessels_count: int = 500) -> VesselFleet:
+        """
+        Generate fleet using real AIS data from CSV file
+        
+        Args:
+            csv_file_path: Path to the CSV file containing AIS data
+            vessels_count: Number of vessels to create from CSV data
+            
+        Returns:
+            VesselFleet object with vessels based on real AIS data
+        """
+        print(f"🚢 Generating fleet from CSV data: {csv_file_path}")
+        print(f"Loading {vessels_count} vessel records...")
+        
+        # Load CSV data
+        csv_loader = AISCSVLoader(csv_file_path)
+        csv_data = csv_loader.load_sample_data(vessels_count)
+        
+        print(f"✅ Loaded {len(csv_data)} records from CSV")
+        
+        vessels = []
+        for i, ais_record in enumerate(csv_data):
+            vessel = self._create_vessel_from_ais_data(ais_record, i)
+            if vessel:
+                vessels.append(vessel)
+        
+        fleet = VesselFleet(vessels)
+        
+        print(f"✅ Created fleet with {len(vessels)} vessels from CSV data")
+        print(f"Distribution: {fleet.get_vessel_statistics()['vessel_types']}")
+        
+        return fleet
+    
+    def _create_vessel_from_ais_data(self, ais_data: dict, index: int) -> Optional[Vessel]:
+        """
+        Create a Vessel object from AIS CSV data
+        
+        Args:
+            ais_data: Dictionary containing AIS data from CSV
+            index: Index for generating additional data
+            
+        Returns:
+            Vessel object or None if data is invalid
+        """
+        try:
+            # Extract basic vessel information
+            vessel_name = ais_data.get('vessel_name') or f"Vessel-{ais_data.get('mmsi', index)}"
+            imo_number = ais_data.get('imo_number') or f"IMO{random.randint(1000000, 9999999)}"
+            
+            # Map AIS vessel type codes to our enum
+            ais_vessel_type = ais_data.get('vessel_type', 0)
+            vessel_type = self._map_ais_vessel_type(ais_vessel_type)
+            
+            # Generate vessel specifications based on AIS data
+            length = ais_data.get('length') or self._generate_vessel_length(vessel_type)
+            width = ais_data.get('width') or (length * random.uniform(0.12, 0.18))
+            draft = ais_data.get('draft') or (length * random.uniform(0.03, 0.07))
+            
+            specs = VesselSpecifications(
+                length_meters=length,
+                width_meters=width,
+                draft_meters=draft,
+                gross_tonnage=int(length * width * draft * random.uniform(0.6, 0.8)),
+                deadweight_tonnage=int(length * width * draft * random.uniform(0.4, 0.7)),
+                engine_power_kw=int(length * random.uniform(50, 200)),
+                max_speed_knots=random.uniform(12, 25),
+                fuel_capacity_tons=int(length * random.uniform(5, 20)),
+                crew_capacity=random.randint(10, 50)
+            )
+            
+            # Create current location from AIS data
+            current_location = Location(
+                latitude=ais_data['latitude'],
+                longitude=ais_data['longitude'],
+                timestamp=ais_data.get('timestamp', datetime.now()),
+                speed_knots=ais_data.get('speed_over_ground', 0),
+                course_degrees=ais_data.get('course_over_ground', 0),
+                country=self._get_country_from_coordinates(ais_data['latitude'], ais_data['longitude'])
+            )
+            
+            # Determine flag state and company
+            flag_state = random.choice(self.shipping_countries)
+            company_name = self.fake.company()
+            
+            # Generate age and dry dock history
+            age_years = random.uniform(1, 30)
+            build_date = datetime.now() - timedelta(days=age_years * 365)
+            
+            # Generate dry dock history
+            dry_dock_history = self._generate_dry_dock_history(age_years, current_location.country)
+            
+            # Determine current status
+            status = VesselStatus.IN_SERVICE
+            current_dry_dock = None
+            
+            # Small chance vessel is currently in dry dock
+            if random.random() < 0.05:  # 5% chance
+                status = VesselStatus.IN_DRY_DOCK
+                current_dry_dock = self._generate_current_dry_dock(current_location.country)
+            
+            # Create vessel
+            vessel = Vessel(
+                vessel_name=vessel_name,
+                imo_number=imo_number,
+                mmsi_number=str(ais_data.get('mmsi', random.randint(100000000, 999999999))),
+                call_sign=ais_data.get('call_sign') or self._generate_call_sign(),
+                flag_state=flag_state,
+                vessel_type=vessel_type,
+                build_date=build_date,
+                specifications=specs,
+                company_name=company_name,
+                service_line=self._assign_service_line(vessel_type),
+                home_port=self._get_port_name(current_location.country),
+                current_location=current_location,
+                status=status,
+                dry_dock_history=dry_dock_history,
+                current_dry_dock=current_dry_dock
+            )
+            
+            return vessel
+            
+        except Exception as e:
+            print(f"Warning: Failed to create vessel from AIS data: {e}")
+            return None
+    
+    def _map_ais_vessel_type(self, ais_type: Optional[int]) -> VesselType:
+        """
+        Map AIS vessel type codes to our VesselType enum
+        
+        Args:
+            ais_type: AIS vessel type code
+            
+        Returns:
+            Corresponding VesselType enum value
+        """
+        if ais_type is None:
+            return random.choice(list(VesselType))
+        
+        # AIS vessel type mapping (based on ITU-R M.1371-5)
+        type_mapping = {
+            # Cargo vessels
+            70: VesselType.GENERAL_CARGO, 71: VesselType.GENERAL_CARGO, 72: VesselType.GENERAL_CARGO,
+            73: VesselType.GENERAL_CARGO, 74: VesselType.GENERAL_CARGO, 75: VesselType.GENERAL_CARGO,
+            76: VesselType.GENERAL_CARGO, 77: VesselType.GENERAL_CARGO, 78: VesselType.GENERAL_CARGO,
+            79: VesselType.GENERAL_CARGO,
+            
+            # Tankers
+            80: VesselType.TANKER, 81: VesselType.TANKER, 82: VesselType.TANKER, 83: VesselType.TANKER,
+            84: VesselType.TANKER, 85: VesselType.TANKER, 86: VesselType.TANKER, 87: VesselType.TANKER,
+            88: VesselType.TANKER, 89: VesselType.TANKER,
+            
+            # Other vessel types
+            30: VesselType.GENERAL_CARGO,  # Fishing
+            31: VesselType.GENERAL_CARGO,  # Towing
+            32: VesselType.GENERAL_CARGO,  # Towing large
+            33: VesselType.GENERAL_CARGO,  # Dredging
+            34: VesselType.GENERAL_CARGO,  # Diving ops
+            35: VesselType.GENERAL_CARGO,  # Military ops
+            36: VesselType.GENERAL_CARGO,  # Sailing
+            37: VesselType.GENERAL_CARGO,  # Pleasure craft
+            52: VesselType.GENERAL_CARGO,  # Tug
+            53: VesselType.GENERAL_CARGO,  # Port tender
+            54: VesselType.GENERAL_CARGO,  # Anti-pollution
+            55: VesselType.GENERAL_CARGO,  # Law enforcement
+            58: VesselType.GENERAL_CARGO,  # Medical transport
+        }
+        
+        # Default mapping for unknown types
+        if ais_type in type_mapping:
+            return type_mapping[ais_type]
+        elif 70 <= ais_type <= 79:
+            return VesselType.GENERAL_CARGO
+        elif 80 <= ais_type <= 89:
+            return VesselType.TANKER
+        else:
+            # For container ships, we'll randomly assign some cargo vessels as containers
+            if random.random() < 0.3:  # 30% chance for container
+                return VesselType.CONTAINER
+            elif random.random() < 0.5:  # 20% chance for bulker
+                return VesselType.BULKER
+            else:
+                return VesselType.GENERAL_CARGO
+    
+    def _get_country_from_coordinates(self, lat: float, lon: float) -> str:
+        """
+        Get country name from coordinates (simplified version)
+        
+        Args:
+            lat: Latitude
+            lon: Longitude
+            
+        Returns:
+            Country name
+        """
+        # Simplified mapping based on coordinate ranges
+        # In a real implementation, you might use reverse geocoding
+        if -125 <= lon <= -66 and 20 <= lat <= 50:
+            return "United States"
+        elif -15 <= lon <= 45 and 35 <= lat <= 70:
+            return "Europe"
+        elif 100 <= lon <= 150 and 10 <= lat <= 50:
+            return "Asia"
+        elif 95 <= lon <= 140 and -50 <= lat <= 20:
+            return "Southeast Asia"
+        else:
+            return random.choice(self.shipping_countries)
 
 
 # Convenience function for quick generation
@@ -399,6 +609,26 @@ def generate_sample_fleet(vessels_count: int = 500) -> VesselFleet:
     """Generate a sample fleet for testing"""
     generator = AISDataGenerator()
     return generator.generate_fleet(vessels_count)
+
+
+def generate_fleet_from_csv(csv_file_path: Optional[str] = None, vessels_count: int = 500) -> VesselFleet:
+    """
+    Generate a fleet using real AIS data from CSV file
+    
+    Args:
+        csv_file_path: Path to CSV file. If None, uses default AIS_2023_01_01.csv
+        vessels_count: Number of vessels to load from CSV
+        
+    Returns:
+        VesselFleet object with real AIS data
+    """
+    if csv_file_path is None:
+        # Default to the CSV file in backend/files
+        current_dir = os.path.dirname(os.path.abspath(__file__))
+        csv_file_path = os.path.join(current_dir, '..', 'files', 'AIS_2023_01_01.csv')
+    
+    generator = AISDataGenerator()
+    return generator.generate_fleet_from_csv(csv_file_path, vessels_count)
 
 
 if __name__ == "__main__":

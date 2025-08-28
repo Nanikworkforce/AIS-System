@@ -27,3 +27,5 @@ public/
 .env
 .env.local
 .env.production
+
+files/

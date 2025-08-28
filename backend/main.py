@@ -13,7 +13,7 @@ from datetime import datetime
 # Add current directory to Python path
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
-from generators.ais_data_generator import generate_sample_fleet
+from generators.ais_data_generator import generate_sample_fleet, generate_fleet_from_csv
 from analytics.vessel_analytics import VesselAnalytics
 from database.models import DatabaseManager
 from api.app import AISFlaskApp
@@ -40,7 +40,14 @@ def generate_fleet_command(args):
     """Generate vessel fleet data"""
     print(f"Generating fleet with {args.vessels} vessels...")
     
-    fleet = generate_sample_fleet(args.vessels)
+    # Use CSV data by default, unless use_generated is specified
+    if hasattr(args, 'use_generated') and args.use_generated:
+        print("🔄 Using generated vessel data...")
+        fleet = generate_sample_fleet(args.vessels)
+    else:
+        print("🔄 Using real AIS data from CSV file...")
+        fleet = generate_fleet_from_csv(vessels_count=args.vessels)
+    
     analytics = VesselAnalytics(fleet)
     
     # Display summary
@@ -80,7 +87,9 @@ def run_api_command(args):
     else:
         fleet_size = args.vessels
     
-    api_app = AISFlaskApp(fleet_size=fleet_size)
+    # Use CSV data by default, unless use_generated is specified
+    use_csv = not (hasattr(args, 'use_generated') and args.use_generated)
+    api_app = AISFlaskApp(fleet_size=fleet_size, use_csv_data=use_csv)
     
     print(f"API Documentation: http://{args.host}:{args.port}/")
     print(f"Sample Endpoints:")
@@ -95,7 +104,9 @@ def run_dashboard_command(args):
     """Run the dashboard interface"""
     print("Starting AIS Dashboard...")
     
-    dashboard = AISVesselDashboard(fleet_size=args.vessels)
+    # Use CSV data by default, unless use_generated is specified
+    use_csv = not (hasattr(args, 'use_generated') and args.use_generated)
+    dashboard = AISVesselDashboard(fleet_size=args.vessels, use_csv_data=use_csv)
     
     print(f"Dashboard Features:")
     print(f"  • Fleet Overview and Statistics")
@@ -241,6 +252,10 @@ Examples:
                                help='Database URL (default: sqlite:///ais_vessels.db)')
     generate_parser.add_argument('--export', 
                                help='Export analytics report to file')
+    generate_parser.add_argument('--use-csv', action='store_true', default=True,
+                               help='Use real AIS data from CSV file (default: True)')
+    generate_parser.add_argument('--use-generated', action='store_true', 
+                               help='Use generated data instead of CSV')
     
     # API command
     api_parser = subparsers.add_parser('api', help='Run Flask API server')
@@ -254,6 +269,10 @@ Examples:
                           help='Enable debug mode')
     api_parser.add_argument('--load-db', action='store_true',
                           help='Load data from database instead of generating')
+    api_parser.add_argument('--use-csv', action='store_true', default=True,
+                          help='Use real AIS data from CSV file (default: True)')
+    api_parser.add_argument('--use-generated', action='store_true', 
+                          help='Use generated data instead of CSV')
     
     # Dashboard command
     dashboard_parser = subparsers.add_parser('dashboard', help='Run dashboard interface')
@@ -265,6 +284,10 @@ Examples:
                                 help='Port to bind to (default: 8050)')
     dashboard_parser.add_argument('--debug', action='store_true',
                                 help='Enable debug mode')
+    dashboard_parser.add_argument('--use-csv', action='store_true', default=True,
+                                help='Use real AIS data from CSV file (default: True)')
+    dashboard_parser.add_argument('--use-generated', action='store_true', 
+                                help='Use generated data instead of CSV')
     
     # Both command
     both_parser = subparsers.add_parser('both', help='Run both API and Dashboard')

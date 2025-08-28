@@ -251,28 +251,10 @@ Examples:
         print("💡 Example: python run_live_ais_system.py --demo")
         print()
         
-        # Prompt for quick start
-        try:
-            choice = input("Choose an option (1-5) or press Enter to exit: ").strip()
-            
-            if choice == '1':
-                if check_dependencies():
-                    run_system_demo()
-            elif choice == '2':
-                if check_dependencies():
-                    test_aisstream_connection()
-            elif choice == '3':
-                check_dependencies()
-            elif choice == '4':
-                open_web_dashboard()
-            elif choice == '5':
-                if check_dependencies():
-                    run_live_websocket_server()
-            else:
-                print("👋 Goodbye!")
-                
-        except KeyboardInterrupt:
-            print("\n👋 Goodbye!")
+        # Auto-run demo with CSV data instead of prompting for input
+        print("🚀 Auto-starting system demo with CSV data...")
+        if check_dependencies():
+            run_system_demo()
 
 if __name__ == "__main__":
     main()
