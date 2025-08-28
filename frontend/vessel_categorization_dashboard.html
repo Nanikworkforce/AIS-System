@@ -1544,11 +1544,15 @@
                 });
                 
                 // Update fleet statistics
-                this.updateFleetStats({
+                const stats = {
                     at_sea: allVessels.filter(v => v.navigation?.status === 'at_sea').length,
                     in_port: allVessels.filter(v => v.navigation?.status === 'in_port').length,
-                    dry_dock: allVessels.filter(v => v.navigation?.status === 'dry_dock').length
-                });
+                    dry_dock: allVessels.filter(v => v.navigation?.status === 'dry_dock').length,
+                    total_vessels: allVessels.length
+                };
+                
+                console.log('📊 Historical fleet statistics:', stats);
+                this.updateFleetOverview(stats);
             }
 
             simulateHistoricalData(requestData) {
