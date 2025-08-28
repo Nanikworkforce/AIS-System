@@ -24,14 +24,20 @@ from analytics.comprehensive_reports import ComprehensiveVesselReports
 class AISFlaskApp:
     """Main Flask application for AIS system"""
     
-    def __init__(self, fleet_size: int = 1000):
+    def __init__(self, fleet_size: int = 1000, use_csv_data: bool = False):
         """Initialize Flask app with vessel fleet"""
         self.app = Flask(__name__)
         self.app.config['SECRET_KEY'] = 'your-secret-key-here'
         CORS(self.app)  # Enable CORS for frontend access
         
-        # Initialize SocketIO for WebSocket support
-        self.socketio = SocketIO(self.app, cors_allowed_origins="*")
+        # Initialize SocketIO for WebSocket support with compatible async mode
+        self.socketio = SocketIO(
+            self.app, 
+            cors_allowed_origins="*",
+            async_mode='threading',  # Use threading instead of eventlet for better compatibility
+            logger=False,
+            engineio_logger=False
+        )
         
         # Generate or load vessel fleet
         print(f"Generating fleet with {fleet_size} vessels...")
@@ -560,9 +566,9 @@ class AISFlaskApp:
         self.app.run(host=host, port=port, debug=debug)
 
 
-def create_app(fleet_size: int = 500):
+def create_app(fleet_size: int = 500, use_csv_data: bool = False):
     """Factory function to create Flask app with SocketIO"""
-    ais_app = AISFlaskApp(fleet_size=fleet_size)
+    ais_app = AISFlaskApp(fleet_size=fleet_size, use_csv_data=use_csv_data)
     return ais_app.app, ais_app.socketio
 
 
