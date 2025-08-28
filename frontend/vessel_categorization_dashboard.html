@@ -696,10 +696,24 @@
 
             connectSocketIO() {
                 try {
-                    this.socket = io({
+                    // Determine the correct SocketIO server URL
+                    let socketUrl;
+                    if (window.location.hostname === 'localhost') {
+                        socketUrl = 'http://localhost:5000';  // Local development
+                    } else if (window.location.hostname.includes('vercel.app')) {
+                        socketUrl = 'https://ais-system.onrender.com';  // Vercel frontend -> Render backend
+                    } else {
+                        socketUrl = window.location.origin;  // Same origin deployment
+                    }
+                    
+                    console.log('Connecting to SocketIO at:', socketUrl);
+                    
+                    this.socket = io(socketUrl, {
                         transports: ['websocket', 'polling'],
                         upgrade: true,
-                        rememberUpgrade: true
+                        rememberUpgrade: true,
+                        autoConnect: true,
+                        forceNew: true
                     });
                     
                     this.socket.on('connect', () => {
@@ -717,6 +731,15 @@
                     this.socket.on('error', (error) => {
                         console.error('SocketIO error:', error);
                         this.updateConnectionStatus('error');
+                    });
+                    
+                    this.socket.on('connect_error', (error) => {
+                        console.error('SocketIO connection error:', error);
+                        console.log('Failed to connect to:', socketUrl);
+                        this.updateConnectionStatus('error');
+                        
+                        // Try alternative URLs if main connection fails
+                        this.tryFallbackConnection();
                     });
                     
                     // Handle various message types
@@ -740,6 +763,90 @@
                     console.error('SocketIO connection failed:', error);
                     this.updateConnectionStatus('error');
                 }
+            }
+
+            tryFallbackConnection() {
+                console.log('Trying fallback connection methods...');
+                
+                // List of possible backend URLs to try
+                const fallbackUrls = [
+                    'https://ais-system.onrender.com',
+                    'https://ais-backend.onrender.com', 
+                    window.location.origin
+                ];
+                
+                // Try each URL until one works
+                let urlIndex = 0;
+                const tryNextUrl = () => {
+                    if (urlIndex >= fallbackUrls.length) {
+                        console.error('All fallback URLs failed');
+                        this.updateConnectionStatus('error');
+                        return;
+                    }
+                    
+                    const url = fallbackUrls[urlIndex++];
+                    console.log(`Trying fallback URL: ${url}`);
+                    
+                    const testSocket = io(url, {
+                        transports: ['polling', 'websocket'],
+                        timeout: 5000,
+                        forceNew: true
+                    });
+                    
+                    testSocket.on('connect', () => {
+                        console.log(`✅ Successfully connected to: ${url}`);
+                        this.socket = testSocket;
+                        this.setupSocketEventHandlers();
+                        this.updateConnectionStatus('connected');
+                        this.requestFleetStatistics();
+                        this.loadAllCategories();
+                    });
+                    
+                    testSocket.on('connect_error', () => {
+                        console.log(`❌ Failed to connect to: ${url}`);
+                        testSocket.disconnect();
+                        tryNextUrl();
+                    });
+                };
+                
+                tryNextUrl();
+            }
+
+            setupSocketEventHandlers() {
+                if (!this.socket) return;
+                
+                // Remove existing listeners to avoid duplicates
+                this.socket.off();
+                
+                this.socket.on('disconnect', () => {
+                    this.isConnected = false;
+                    this.updateConnectionStatus('disconnected');
+                });
+                
+                this.socket.on('error', (error) => {
+                    console.error('SocketIO error:', error);
+                });
+                
+                // Handle various message types
+                this.socket.on('fleet_summary', (data) => {
+                    this.handleMessage({type: 'fleet_summary', ...data});
+                });
+                
+                this.socket.on('vessels_by_type', (data) => {
+                    this.handleMessage({type: 'vessels_by_type', ...data});
+                });
+                
+                this.socket.on('historical_data', (data) => {
+                    this.handleMessage({type: 'historical_data', ...data});
+                });
+                
+                this.socket.on('fleet_statistics', (data) => {
+                    this.handleMessage({type: 'fleet_statistics', ...data});
+                });
+                
+                this.socket.on('vessel_details', (data) => {
+                    this.handleMessage({type: 'vessel_details', ...data});
+                });
             }
 
             setupWebSocketHandlers() {
@@ -943,13 +1050,19 @@
                 
                 switch (status) {
                     case 'connected':
-                        statusElement.innerHTML = '🟢 Connected';
+                        statusElement.innerHTML = '🟢 Connected to Server';
                         break;
                     case 'disconnected':
                         statusElement.innerHTML = '🔴 Disconnected - Retrying...';
                         break;
                     case 'connecting':
-                        statusElement.innerHTML = '<span class="loading"></span> Connecting...';
+                        statusElement.innerHTML = '<span class="loading"></span> Connecting to Server...';
+                        break;
+                    case 'error':
+                        statusElement.innerHTML = '❌ Connection Error - Check Network';
+                        break;
+                    default:
+                        statusElement.innerHTML = `🔄 Status: ${status}`;
                         break;
                 }
             }

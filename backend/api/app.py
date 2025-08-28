@@ -28,17 +28,25 @@ class AISFlaskApp:
         """Initialize Flask app with vessel fleet"""
         self.app = Flask(__name__)
         self.app.config['SECRET_KEY'] = 'your-secret-key-here'
-        CORS(self.app)  # Enable CORS for frontend access
+        
+        # Enable CORS for frontend access with specific configuration
+        CORS(self.app, 
+             origins=["*"],  # Allow all origins for development
+             supports_credentials=True,
+             allow_headers=["Content-Type", "Authorization"],
+             methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"])
         
         # Initialize SocketIO for WebSocket support with compatible async mode
         self.socketio = SocketIO(
             self.app, 
             cors_allowed_origins="*",
             async_mode='threading',  # Use threading for maximum compatibility
-            logger=False,
-            engineio_logger=False,
+            logger=True,  # Enable logging to debug connection issues
+            engineio_logger=True,
             ping_timeout=60,
-            ping_interval=25
+            ping_interval=25,
+            allow_upgrades=True,
+            transports=['polling', 'websocket']
         )
         
         # Generate or load vessel fleet
